@@ -19,123 +19,84 @@ body {
   color: #222;
 }
 
-
-/* =========================
-   KOPFBEREICH
-========================= */
+/* HEADER */
 
 header {
   background: white;
   text-align: center;
-  padding: 25px 15px 22px;
+  padding: 22px 15px 20px;
   border-bottom: 1px solid #e5e5e5;
 }
 
-
-/* LOGO */
-
 .logo {
-  width: 75px;
-  height: 75px;
-
-  margin: 0 auto 8px;
-
-  border-radius: 22px;
-
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 7px;
+  border-radius: 18px;
   background: #eee9df;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  font-size: 38px;
+  font-size: 31px;
 }
-
-
-/* NAME */
 
 header h1 {
   margin: 0;
-
-  font-size: 36px;
-
-  letter-spacing: -1px;
+  font-size: 32px;
 }
-
-
-/* UNTERTITEL */
 
 header p {
-  margin: 7px 0 0;
-
+  margin: 6px 0 0;
   color: #666;
-
-  font-size: 16px;
+  font-size: 15px;
 }
 
-
-/* =========================
-   HAUPTBEREICH
-========================= */
+/* SEITE */
 
 main {
-  max-width: 1450px;
-
+  max-width: 1400px;
   margin: auto;
-
-  padding: 28px 30px 45px;
+  padding: 25px 25px 40px;
 }
 
-
-/* =========================
-   SUCHE
-========================= */
+/* SUCHE */
 
 #search {
   width: 100%;
-
-  height: 52px;
-
-  padding: 0 18px;
-
-  border: 1px solid #d7d7d7;
-
-  border-radius: 12px;
+  height: 48px;
+  padding: 0 17px;
 
   background: white;
 
-  font-size: 16px;
+  border: 1px solid #d5d5d5;
+  border-radius: 11px;
 
+  font-size: 15px;
   outline: none;
 }
-
 
 #search:focus {
   border-color: #555;
 }
 
-
-/* =========================
-   KATEGORIEN
-========================= */
+/* KATEGORIEN */
 
 #categories {
   display: flex;
-
-  gap: 9px;
+  gap: 8px;
 
   overflow-x: auto;
 
-  padding: 18px 0 22px;
+  padding: 16px 0 20px;
 
   scrollbar-width: none;
 }
 
-
 #categories::-webkit-scrollbar {
   display: none;
 }
-
 
 .category-button {
   flex: 0 0 auto;
@@ -144,28 +105,22 @@ main {
 
   background: white;
 
-  padding: 9px 15px;
+  padding: 8px 14px;
 
   border-radius: 20px;
 
-  font-size: 14px;
+  font-size: 13px;
 
   cursor: pointer;
 }
 
-
 .category-button.active {
   background: #222;
-
   color: white;
-
   border-color: #222;
 }
 
-
-/* =========================
-   PRODUKTE
-========================= */
+/* PRODUKTRASTER */
 
 #products {
   display: grid;
@@ -173,136 +128,104 @@ main {
   grid-template-columns:
     repeat(4, minmax(0, 1fr));
 
-  gap: 16px;
+  gap: 14px;
 }
 
-
-/* PRODUKTKARTE */
+/* PRODUKT */
 
 .product-card {
+  min-width: 0;
+
   background: white;
 
-  border: 1px solid #e5e5e5;
+  border: 1px solid #e4e4e4;
 
-  border-radius: 15px;
+  border-radius: 14px;
 
   overflow: hidden;
 
-  min-width: 0;
-
   display: flex;
-
   flex-direction: column;
 
-  box-shadow:
-    0 2px 8px rgba(0,0,0,0.035);
+  box-shadow: 0 2px 8px rgba(0,0,0,.035);
 }
 
-
-/* =========================
-   PRODUKTBILD
-========================= */
+/* BILD */
 
 .image-area {
-  width: 100%;
-
-  height: 180px;
+  height: 150px;
 
   background: #fafafa;
 
   display: flex;
-
   align-items: center;
-
   justify-content: center;
 
   overflow: hidden;
-}
 
+  border-bottom: 1px solid #f0f0f0;
+}
 
 .product-image {
   width: 100%;
-
   height: 100%;
 
   object-fit: contain;
 
-  padding: 10px;
+  padding: 8px;
 }
-
-
-/* WENN KEIN BILD VORHANDEN */
 
 .no-image {
-  color: #bbb;
-
-  font-size: 13px;
+  color: #aaa;
+  font-size: 12px;
 }
 
-
-/* =========================
-   PRODUKTINHALT
-========================= */
+/* PRODUKTINHALT */
 
 .product-content {
-  padding: 15px;
-
-  flex: 1;
+  padding: 13px;
 
   display: flex;
-
   flex-direction: column;
+
+  flex: 1;
 }
 
-
-/* KATEGORIE */
-
 .category-label {
-  display: inline-block;
-
   align-self: flex-start;
 
   background: #f1f1f1;
 
-  padding: 5px 9px;
-
-  border-radius: 12px;
-
-  font-size: 12px;
-
   color: #555;
 
-  margin-bottom: 8px;
+  padding: 4px 8px;
+
+  border-radius: 10px;
+
+  font-size: 11px;
+
+  margin-bottom: 7px;
 }
 
-
-/* PRODUKTNAME */
-
 .product-card h2 {
-  margin: 0 0 8px;
+  margin: 0 0 7px;
 
-  font-size: 18px;
+  font-size: 17px;
 
   line-height: 1.25;
 }
 
-
-/* BESCHREIBUNG */
-
 .description {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
 
   color: #666;
 
-  font-size: 14px;
+  font-size: 13px;
 
   line-height: 1.4;
 }
 
-
-/* =========================
-   PRODUKTLINK
-========================= */
+/* PRODUKTBUTTON */
 
 .product-link {
   display: block;
@@ -311,64 +234,52 @@ main {
 
   margin-top: auto;
 
-  padding: 10px 12px;
+  padding: 9px 8px;
 
   background: #222;
 
   color: white;
 
-  text-decoration: none;
-
   text-align: center;
 
-  border-radius: 8px;
+  text-decoration: none;
 
-  font-size: 14px;
+  border-radius: 7px;
+
+  font-size: 13px;
 
   font-weight: bold;
 }
-
 
 .product-link:hover {
   background: #444;
 }
 
-
-/* =========================
-   MELDUNGEN
-========================= */
-
 .message {
   grid-column: 1 / -1;
 
-  text-align: center;
-
   padding: 35px;
+
+  text-align: center;
 
   color: #777;
 }
 
-
-/* =========================
-   FOOTER
-========================= */
+/* FOOTER */
 
 footer {
+  padding: 30px;
+
   text-align: center;
 
   color: #888;
 
-  font-size: 13px;
-
-  padding: 30px;
+  font-size: 12px;
 }
 
+/* TABLET */
 
-/* =========================
-   TABLET
-========================= */
-
-@media (max-width: 1000px) {
+@media (max-width: 950px) {
 
   #products {
     grid-template-columns:
@@ -377,125 +288,66 @@ footer {
 
 }
 
+/* KLEINERES TABLET */
 
-/* =========================
-   KLEINES TABLET
-========================= */
-
-@media (max-width: 750px) {
+@media (max-width: 700px) {
 
   main {
-    padding:
-      22px 16px 40px;
+    padding: 20px 14px 35px;
   }
-
 
   #products {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
-  }
-
-
-  .image-area {
-    height: 160px;
   }
 
 }
 
+/* HANDY */
 
-/* =========================
-   HANDY
-========================= */
-
-@media (max-width: 480px) {
+@media (max-width: 450px) {
 
   header {
-    padding-top: 20px;
+    padding-top: 17px;
   }
-
 
   .logo {
-    width: 62px;
-
-    height: 62px;
-
-    font-size: 31px;
-
-    border-radius: 18px;
+    width: 52px;
+    height: 52px;
+    font-size: 27px;
   }
-
 
   header h1 {
-    font-size: 29px;
+    font-size: 27px;
   }
 
+  header p {
+    font-size: 13px;
+  }
 
   #products {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-
-    gap: 10px;
+    grid-template-columns: 1fr;
   }
-
 
   .image-area {
-    height: 130px;
-  }
-
-
-  .product-content {
-    padding: 11px;
-  }
-
-
-  .product-card h2 {
-    font-size: 15px;
-  }
-
-
-  .description {
-    font-size: 12px;
-  }
-
-
-  .product-link {
-    font-size: 12px;
-
-    padding: 9px 7px;
+    height: 180px;
   }
 
 }
 
 </style>
-
 </head>
-
 
 <body>
 
-
-<!-- =========================
-     HEADER
-========================= -->
-
 <header>
 
-  <!--
-    VORLÄUFIGES LOGO
-
-    Später ersetzen wir das ganz einfach
-    durch dein richtiges FindoraHome-Logo.
-  -->
-
+  <!-- VORLÄUFIGES LOGO -->
   <div class="logo">
     ♡
   </div>
 
-
-  <h1>
-    FindoraHome
-  </h1>
-
+  <h1>FindoraHome</h1>
 
   <p>
     Finde Produkte für dein Zuhause
@@ -504,15 +356,7 @@ footer {
 </header>
 
 
-
-<!-- =========================
-     HAUPTBEREICH
-========================= -->
-
 <main>
-
-
-  <!-- SUCHE -->
 
   <input
     id="search"
@@ -521,15 +365,7 @@ footer {
     autocomplete="off"
   >
 
-
-
-  <!-- KATEGORIEN -->
-
   <div id="categories"></div>
-
-
-
-  <!-- PRODUKTE -->
 
   <div id="products">
 
@@ -539,9 +375,7 @@ footer {
 
   </div>
 
-
 </main>
-
 
 
 <footer>
@@ -549,25 +383,16 @@ footer {
 </footer>
 
 
-
 <script>
 
-/* ============================================
-   SUPABASE
-============================================ */
+/* SUPABASE */
 
 const SUPABASE_URL =
   "https://wcpifcdwomjzmvnvgqwr.supabase.co";
 
-
 const SUPABASE_KEY =
   "sb_publishable_E2eo9QKlcUtWkpVuRPOmPw_n95EvT0i";
 
-
-
-/* ============================================
-   VARIABLEN
-============================================ */
 
 let products = [];
 
@@ -576,89 +401,61 @@ let selectedCategory =
 
 
 const productsContainer =
-  document.getElementById(
-    "products"
-  );
-
+  document.getElementById("products");
 
 const categoriesContainer =
-  document.getElementById(
-    "categories"
-  );
-
+  document.getElementById("categories");
 
 const searchInput =
-  document.getElementById(
-    "search"
-  );
+  document.getElementById("search");
 
 
-
-/* ============================================
-   PRODUKTE LADEN
-============================================ */
+/* PRODUKTE LADEN */
 
 async function loadProducts() {
 
-
   try {
 
+    const response = await fetch(
 
-    const response =
-      await fetch(
+      `${SUPABASE_URL}/rest/v1/products?select=*&active=eq.true&order=id.asc`,
 
-        `${SUPABASE_URL}/rest/v1/products?select=*&active=eq.true&order=id.asc`,
+      {
+        headers: {
 
-        {
+          "apikey":
+            SUPABASE_KEY,
 
-          headers: {
-
-            "apikey":
-              SUPABASE_KEY,
-
-            "Authorization":
-              `Bearer ${SUPABASE_KEY}`
-
-          }
+          "Authorization":
+            `Bearer ${SUPABASE_KEY}`
 
         }
+      }
 
-      );
-
+    );
 
 
     if (!response.ok) {
 
       throw new Error(
-        "Produkte konnten nicht geladen werden."
+        "Fehler beim Laden der Produkte."
       );
 
     }
-
 
 
     products =
       await response.json();
 
 
-
     createCategories();
-
 
     renderProducts();
 
 
+  } catch (error) {
 
-  }
-
-
-  catch (error) {
-
-
-    console.error(
-      error
-    );
-
+    console.error(error);
 
     productsContainer.innerHTML =
 
@@ -671,13 +468,9 @@ async function loadProducts() {
 }
 
 
-
-/* ============================================
-   KATEGORIEN ERSTELLEN
-============================================ */
+/* KATEGORIEN */
 
 function createCategories() {
-
 
   const categories = [
 
@@ -699,10 +492,8 @@ function createCategories() {
   ];
 
 
-
   categoriesContainer.innerHTML =
     "";
-
 
 
   categories.forEach(
@@ -723,7 +514,6 @@ function createCategories() {
         category;
 
 
-
       if (
         category ===
         selectedCategory
@@ -736,30 +526,20 @@ function createCategories() {
       }
 
 
+      button.onclick = () => {
 
-      button.addEventListener(
-        "click",
-        () => {
+        selectedCategory =
+          category;
 
+        createCategories();
 
-          selectedCategory =
-            category;
+        renderProducts();
 
-
-          createCategories();
-
-
-          renderProducts();
-
-        }
-      );
-
+      };
 
 
       categoriesContainer
-        .appendChild(
-          button
-        );
+        .appendChild(button);
 
     }
 
@@ -768,20 +548,15 @@ function createCategories() {
 }
 
 
-
-/* ============================================
-   PRODUKTE ANZEIGEN
-============================================ */
+/* PRODUKTE ANZEIGEN */
 
 function renderProducts() {
-
 
   const search =
     searchInput
       .value
       .trim()
       .toLowerCase();
-
 
 
   const filtered =
@@ -808,13 +583,10 @@ function renderProducts() {
         .toLowerCase();
 
 
-
         const matchesSearch =
-
           searchableText.includes(
             search
           );
-
 
 
         const matchesCategory =
@@ -828,15 +600,9 @@ function renderProducts() {
             selectedCategory;
 
 
-
         return (
-
-          matchesSearch
-
-          &&
-
+          matchesSearch &&
           matchesCategory
-
         );
 
       }
@@ -844,16 +610,13 @@ function renderProducts() {
     );
 
 
-
   productsContainer.innerHTML =
     "";
-
 
 
   if (
     filtered.length === 0
   ) {
-
 
     productsContainer.innerHTML =
 
@@ -861,18 +624,14 @@ function renderProducts() {
         Kein passendes Produkt gefunden.
       </div>`;
 
-
     return;
 
   }
 
 
-
   filtered.forEach(
     product => {
 
-
-      /* PRODUKTKARTE */
 
       const card =
         document.createElement(
@@ -884,11 +643,7 @@ function renderProducts() {
         "product-card";
 
 
-
-      /* =========================
-         BILDBEREICH
-      ========================= */
-
+      /* BILD */
 
       const imageArea =
         document.createElement(
@@ -900,10 +655,7 @@ function renderProducts() {
         "image-area";
 
 
-
-      if (
-        product.image_url
-      ) {
+      if (product.image_url) {
 
 
         const image =
@@ -929,19 +681,15 @@ function renderProducts() {
           "lazy";
 
 
+        image.onerror = () => {
 
-        image.onerror =
-          function() {
+          imageArea.innerHTML =
 
+            `<div class="no-image">
+              Kein Bild
+            </div>`;
 
-            imageArea.innerHTML =
-
-              `<div class="no-image">
-                Kein Bild
-              </div>`;
-
-          };
-
+        };
 
 
         imageArea.appendChild(
@@ -949,10 +697,7 @@ function renderProducts() {
         );
 
 
-      }
-
-
-      else {
+      } else {
 
 
         imageArea.innerHTML =
@@ -964,17 +709,12 @@ function renderProducts() {
       }
 
 
-
       card.appendChild(
         imageArea
       );
 
 
-
-      /* =========================
-         PRODUKTINHALT
-      ========================= */
-
+      /* INHALT */
 
       const content =
         document.createElement(
@@ -986,13 +726,9 @@ function renderProducts() {
         "product-content";
 
 
-
       /* KATEGORIE */
 
-
-      if (
-        product.category
-      ) {
+      if (product.category) {
 
 
         const category =
@@ -1016,9 +752,7 @@ function renderProducts() {
       }
 
 
-
-      /* NAME */
-
+      /* PRODUKTNAME */
 
       const title =
         document.createElement(
@@ -1036,13 +770,9 @@ function renderProducts() {
       );
 
 
-
       /* BESCHREIBUNG */
 
-
-      if (
-        product.description
-      ) {
+      if (product.description) {
 
 
         const description =
@@ -1066,18 +796,9 @@ function renderProducts() {
       }
 
 
+      /* PRODUKTLINK */
 
-      /* =========================
-         PRODUKTLINK
-
-         WICHTIG:
-         Deine Spalte heißt "link"
-      ========================= */
-
-
-      if (
-        product.link
-      ) {
+      if (product.link) {
 
 
         const link =
@@ -1113,17 +834,13 @@ function renderProducts() {
       }
 
 
-
       card.appendChild(
         content
       );
 
 
-
       productsContainer
-        .appendChild(
-          card
-        );
+        .appendChild(card);
 
     }
 
@@ -1132,31 +849,19 @@ function renderProducts() {
 }
 
 
-
-/* ============================================
-   SUCHLEISTE
-============================================ */
+/* SUCHE */
 
 searchInput.addEventListener(
-
   "input",
-
   renderProducts
-
 );
 
 
-
-/* ============================================
-   START
-============================================ */
+/* START */
 
 loadProducts();
 
-
 </script>
 
-
 </body>
-
 </html>
