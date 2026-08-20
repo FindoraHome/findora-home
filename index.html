@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Findora Home</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      color: #222;
+    }
+
+    .container {
+      max-width: 850px;
+      margin: auto;
+      padding: 30px 18px 60px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      font-size: 34px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-top: 0;
+    }
+
+    #search {
+      width: 100%;
+      padding: 17px 20px;
+      border: 1px solid #ddd;
+      border-radius: 15px;
+      font-size: 17px;
+      background: white;
+      margin: 20px 0 25px;
+    }
+
+    .categories {
+      display: flex;
+      gap: 9px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      margin-bottom: 25px;
+    }
+
+    .category {
+      border: 1px solid #ddd;
+      background: white;
+      padding: 10px 15px;
+      border-radius: 20px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .category.active {
+      background: #222;
+      color: white;
+    }
+
+    .product {
+      background: white;
+      padding: 18px;
+      margin-bottom: 12px;
+      border-radius: 15px;
+      border: 1px solid #eee;
+    }
+
+    .product h3 {
+      margin: 0 0 7px;
+    }
+
+    .product small {
+      color: #777;
+    }
+
+    .product a {
+      display: inline-block;
+      margin-top: 12px;
+      text-decoration: none;
+      background: #222;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 10px;
+    }
+
+    #noResults {
+      display: none;
+      text-align: center;
+      color: #777;
+      padding: 30px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>Findora Home</h1>
+    <p class="subtitle">Entdecke unsere Produktempfehlungen</p>
+  </header>
+
+  <input
+    id="search"
+    type="search"
+    placeholder="🔎 Produkt suchen …"
+    autocomplete="off"
+  >
+
+  <div class="categories" id="categories"></div>
+
+  <div id="products"></div>
+
+  <div id="noResults">
+    Kein passendes Produkt gefunden.
+  </div>
+
+</div>
+
+<script>
+
+const products = [
+  {
+    name: "Beispiel Küchenhelfer",
+    category: "Küche & Küchenhelfer",
+    shop: "Amazon",
+    url: "https://www.amazon.de/"
+  },
+  {
+    name: "Beispiel Aufbewahrungsbox",
+    category: "Aufbewahrung & Organisation",
+    shop: "IKEA",
+    url: "https://www.ikea.com/de/de/"
+  },
+  {
+    name: "Beispiel Nachtlicht",
+    category: "Beleuchtung",
+    shop: "Amazon",
+    url: "https://www.amazon.de/"
+  }
+];
+
+const categories = [
+  "Alle",
+  "Küche & Küchenhelfer",
+  "Haushalt",
+  "Reinigung & Waschen",
+  "Aufbewahrung & Organisation",
+  "Möbel",
+  "Sofas & Sessel",
+  "Tische & Stühle",
+  "Schreibtische & Büromöbel",
+  "Schlafen & Matratzen",
+  "Bad & Badaccessoires",
+  "Deko & Wohnaccessoires",
+  "Textilien",
+  "Teppiche & Fußmatten",
+  "Beleuchtung",
+  "Smart Home",
+  "Technik & Elektronik",
+  "Haushaltsgeräte",
+  "Heimwerken",
+  "Garten",
+  "Pflanzen & Pflanzzubehör",
+  "Outdoor & Balkon",
+  "Grillen",
+  "Baby",
+  "Kinder & Spielzeug",
+  "Haustiere & Tierbedarf",
+  "Auto & Autozubehör",
+  "Reisen & Reisebedarf",
+  "Bücher",
+  "Fotografie",
+  "Kunst & Kreatives",
+  "Familie & Eltern",
+  "Hochzeit",
+  "Lernen & Bildung",
+  "Lifestyle",
+  "Geschenke & Geschenkideen",
+  "Angebote & Bestseller"
+];
+
+let selectedCategory = "Alle";
+
+function createCategories() {
+  const container = document.getElementById("categories");
+
+  categories.forEach(category => {
+    const button = document.createElement("button");
+
+    button.textContent = category;
+    button.className =
+      "category" + (category === "Alle" ? " active" : "");
+
+    button.onclick = () => {
+      selectedCategory = category;
+
+      document.querySelectorAll(".category").forEach(btn => {
+        btn.classList.remove("active");
+      });
+
+      button.classList.add("active");
+      renderProducts();
+    };
+
+    container.appendChild(button);
+  });
+}
+
+function renderProducts() {
+  const search =
+    document.getElementById("search").value.toLowerCase().trim();
+
+  const container = document.getElementById("products");
+  const noResults = document.getElementById("noResults");
+
+  container.innerHTML = "";
+
+  const filtered = products.filter(product => {
+
+    const matchesCategory =
+      selectedCategory === "Alle" ||
+      product.category === selectedCategory;
+
+    const searchableText =
+      `${product.name} ${product.category} ${product.shop}`.toLowerCase();
+
+    const matchesSearch =
+      searchableText.includes(search);
+
+    return matchesCategory && matchesSearch;
+  });
+
+  filtered.forEach(product => {
+
+    const card = document.createElement("div");
+    card.className = "product";
+
+    card.innerHTML = `
+      <h3>${product.name}</h3>
+      <small>${product.category} · ${product.shop}</small><br>
+      <a href="${product.url}" target="_blank" rel="nofollow sponsored">
+        Produkt ansehen
+      </a>
+    `;
+
+    container.appendChild(card);
+  });
+
+  noResults.style.display =
+    filtered.length === 0 ? "block" : "none";
+}
+
+document
+  .getElementById("search")
+  .addEventListener("input", renderProducts);
+
+createCategories();
+renderProducts();
+
+</script>
+
+</body>
+</html>
