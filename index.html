@@ -1,408 +1,1162 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FindoraHome</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+<title>FindoraHome</title>
 
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f7f7f7;
-      color: #222;
-    }
+<style>
 
-    header {
-      background: white;
-      text-align: center;
-      padding: 22px 20px;
-      border-bottom: 1px solid #ddd;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    header h1 {
-      margin: 0;
-      font-size: 38px;
-    }
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f7f7f7;
+  color: #222;
+}
 
-    header p {
-      margin: 8px 0 0;
-      color: #555;
-      font-size: 18px;
-    }
 
-    main {
-      max-width: 1400px;
-      margin: auto;
-      padding: 32px 40px;
-    }
+/* =========================
+   KOPFBEREICH
+========================= */
 
-    #search {
-      width: 100%;
-      padding: 17px 20px;
-      font-size: 18px;
-      border: 1px solid #ccc;
-      border-radius: 12px;
-      background: white;
-      outline: none;
-    }
+header {
+  background: white;
+  text-align: center;
+  padding: 25px 15px 22px;
+  border-bottom: 1px solid #e5e5e5;
+}
 
-    #search:focus {
-      border-color: #222;
-    }
 
-    #categories {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin: 25px 0 32px;
-    }
+/* LOGO */
 
-    .category-button {
-      padding: 11px 20px;
-      border: 1px solid #ddd;
-      border-radius: 25px;
-      background: white;
-      font-size: 16px;
-      cursor: pointer;
-    }
+.logo {
+  width: 75px;
+  height: 75px;
 
-    .category-button.active {
-      background: #222;
-      color: white;
-      border-color: #222;
-    }
+  margin: 0 auto 8px;
 
-    #products {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-    }
+  border-radius: 22px;
 
-    .product-card {
-      background: white;
-      border: 1px solid #e2e2e2;
-      border-radius: 16px;
-      padding: 22px;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.04);
-    }
+  background: #eee9df;
 
-    .product-image {
-      display: block;
-      width: 100%;
-      height: 220px;
-      object-fit: contain;
-      margin-bottom: 18px;
-      border-radius: 10px;
-    }
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-    .category-label {
-      display: inline-block;
-      background: #f0f0f0;
-      border-radius: 14px;
-      padding: 6px 11px;
-      font-size: 14px;
-      margin-bottom: 10px;
-    }
+  font-size: 38px;
+}
 
-    .product-card h2 {
-      margin: 0 0 12px;
-      font-size: 23px;
-    }
 
-    .description {
-      margin: 0 0 18px;
-      line-height: 1.5;
-      color: #444;
-      font-size: 16px;
-    }
+/* NAME */
 
-    .product-link {
-      display: inline-block;
-      background: #222;
-      color: white;
-      text-decoration: none;
-      padding: 11px 18px;
-      border-radius: 8px;
-      font-weight: bold;
-      font-size: 15px;
-      cursor: pointer;
-    }
+header h1 {
+  margin: 0;
 
-    .product-link:hover {
-      background: #444;
-    }
+  font-size: 36px;
 
-    .message {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 30px;
-      color: #666;
-    }
+  letter-spacing: -1px;
+}
 
-    footer {
-      text-align: center;
-      padding: 35px;
-      color: #666;
-    }
 
-    @media (max-width: 750px) {
-      main {
-        padding: 25px 18px;
-      }
+/* UNTERTITEL */
 
-      #products {
-        grid-template-columns: 1fr;
-      }
+header p {
+  margin: 7px 0 0;
 
-      header h1 {
-        font-size: 32px;
-      }
-    }
-  </style>
+  color: #666;
+
+  font-size: 16px;
+}
+
+
+/* =========================
+   HAUPTBEREICH
+========================= */
+
+main {
+  max-width: 1450px;
+
+  margin: auto;
+
+  padding: 28px 30px 45px;
+}
+
+
+/* =========================
+   SUCHE
+========================= */
+
+#search {
+  width: 100%;
+
+  height: 52px;
+
+  padding: 0 18px;
+
+  border: 1px solid #d7d7d7;
+
+  border-radius: 12px;
+
+  background: white;
+
+  font-size: 16px;
+
+  outline: none;
+}
+
+
+#search:focus {
+  border-color: #555;
+}
+
+
+/* =========================
+   KATEGORIEN
+========================= */
+
+#categories {
+  display: flex;
+
+  gap: 9px;
+
+  overflow-x: auto;
+
+  padding: 18px 0 22px;
+
+  scrollbar-width: none;
+}
+
+
+#categories::-webkit-scrollbar {
+  display: none;
+}
+
+
+.category-button {
+  flex: 0 0 auto;
+
+  border: 1px solid #ddd;
+
+  background: white;
+
+  padding: 9px 15px;
+
+  border-radius: 20px;
+
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+
+.category-button.active {
+  background: #222;
+
+  color: white;
+
+  border-color: #222;
+}
+
+
+/* =========================
+   PRODUKTE
+========================= */
+
+#products {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 16px;
+}
+
+
+/* PRODUKTKARTE */
+
+.product-card {
+  background: white;
+
+  border: 1px solid #e5e5e5;
+
+  border-radius: 15px;
+
+  overflow: hidden;
+
+  min-width: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.035);
+}
+
+
+/* =========================
+   PRODUKTBILD
+========================= */
+
+.image-area {
+  width: 100%;
+
+  height: 180px;
+
+  background: #fafafa;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  overflow: hidden;
+}
+
+
+.product-image {
+  width: 100%;
+
+  height: 100%;
+
+  object-fit: contain;
+
+  padding: 10px;
+}
+
+
+/* WENN KEIN BILD VORHANDEN */
+
+.no-image {
+  color: #bbb;
+
+  font-size: 13px;
+}
+
+
+/* =========================
+   PRODUKTINHALT
+========================= */
+
+.product-content {
+  padding: 15px;
+
+  flex: 1;
+
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+/* KATEGORIE */
+
+.category-label {
+  display: inline-block;
+
+  align-self: flex-start;
+
+  background: #f1f1f1;
+
+  padding: 5px 9px;
+
+  border-radius: 12px;
+
+  font-size: 12px;
+
+  color: #555;
+
+  margin-bottom: 8px;
+}
+
+
+/* PRODUKTNAME */
+
+.product-card h2 {
+  margin: 0 0 8px;
+
+  font-size: 18px;
+
+  line-height: 1.25;
+}
+
+
+/* BESCHREIBUNG */
+
+.description {
+  margin: 0 0 14px;
+
+  color: #666;
+
+  font-size: 14px;
+
+  line-height: 1.4;
+}
+
+
+/* =========================
+   PRODUKTLINK
+========================= */
+
+.product-link {
+  display: block;
+
+  width: 100%;
+
+  margin-top: auto;
+
+  padding: 10px 12px;
+
+  background: #222;
+
+  color: white;
+
+  text-decoration: none;
+
+  text-align: center;
+
+  border-radius: 8px;
+
+  font-size: 14px;
+
+  font-weight: bold;
+}
+
+
+.product-link:hover {
+  background: #444;
+}
+
+
+/* =========================
+   MELDUNGEN
+========================= */
+
+.message {
+  grid-column: 1 / -1;
+
+  text-align: center;
+
+  padding: 35px;
+
+  color: #777;
+}
+
+
+/* =========================
+   FOOTER
+========================= */
+
+footer {
+  text-align: center;
+
+  color: #888;
+
+  font-size: 13px;
+
+  padding: 30px;
+}
+
+
+/* =========================
+   TABLET
+========================= */
+
+@media (max-width: 1000px) {
+
+  #products {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+}
+
+
+/* =========================
+   KLEINES TABLET
+========================= */
+
+@media (max-width: 750px) {
+
+  main {
+    padding:
+      22px 16px 40px;
+  }
+
+
+  #products {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+
+  .image-area {
+    height: 160px;
+  }
+
+}
+
+
+/* =========================
+   HANDY
+========================= */
+
+@media (max-width: 480px) {
+
+  header {
+    padding-top: 20px;
+  }
+
+
+  .logo {
+    width: 62px;
+
+    height: 62px;
+
+    font-size: 31px;
+
+    border-radius: 18px;
+  }
+
+
+  header h1 {
+    font-size: 29px;
+  }
+
+
+  #products {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 10px;
+  }
+
+
+  .image-area {
+    height: 130px;
+  }
+
+
+  .product-content {
+    padding: 11px;
+  }
+
+
+  .product-card h2 {
+    font-size: 15px;
+  }
+
+
+  .description {
+    font-size: 12px;
+  }
+
+
+  .product-link {
+    font-size: 12px;
+
+    padding: 9px 7px;
+  }
+
+}
+
+</style>
+
 </head>
+
 
 <body>
 
+
+<!-- =========================
+     HEADER
+========================= -->
+
 <header>
-  <h1>FindoraHome</h1>
-  <p>Finde Produkte für dein Zuhause</p>
+
+  <!--
+    VORLÄUFIGES LOGO
+
+    Später ersetzen wir das ganz einfach
+    durch dein richtiges FindoraHome-Logo.
+  -->
+
+  <div class="logo">
+    ♡
+  </div>
+
+
+  <h1>
+    FindoraHome
+  </h1>
+
+
+  <p>
+    Finde Produkte für dein Zuhause
+  </p>
+
 </header>
+
+
+
+<!-- =========================
+     HAUPTBEREICH
+========================= -->
 
 <main>
 
+
+  <!-- SUCHE -->
+
   <input
     id="search"
-    type="text"
-    placeholder="Produkt, Kategorie oder Stichwort suchen..."
+    type="search"
+    placeholder="🔎 Produkt, Kategorie oder Stichwort suchen..."
+    autocomplete="off"
   >
+
+
+
+  <!-- KATEGORIEN -->
 
   <div id="categories"></div>
 
+
+
+  <!-- PRODUKTE -->
+
   <div id="products">
-    <div class="message">Produkte werden geladen...</div>
+
+    <div class="message">
+      Produkte werden geladen...
+    </div>
+
   </div>
 
+
 </main>
+
+
 
 <footer>
   © FindoraHome
 </footer>
 
+
+
 <script>
-  const SUPABASE_URL =
-    "https://wcpifcdwomjzmvnvgqwr.supabase.co";
 
-  const SUPABASE_KEY =
-    "sb_publishable_E2eo9QKlcUtWkpVuRPOmPw_n95EvT0i";
+/* ============================================
+   SUPABASE
+============================================ */
 
-  let products = [];
-  let selectedCategory = "Alle";
+const SUPABASE_URL =
+  "https://wcpifcdwomjzmvnvgqwr.supabase.co";
 
-  const productsContainer =
-    document.getElementById("products");
 
-  const categoriesContainer =
-    document.getElementById("categories");
+const SUPABASE_KEY =
+  "sb_publishable_E2eo9QKlcUtWkpVuRPOmPw_n95EvT0i";
 
-  const searchInput =
-    document.getElementById("search");
 
 
-  async function loadProducts() {
-    try {
+/* ============================================
+   VARIABLEN
+============================================ */
 
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/products?select=*&active=eq.true&order=id.asc`,
-        {
-          headers: {
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`
-          }
-        }
-      );
+let products = [];
 
-      if (!response.ok) {
-        throw new Error("Fehler beim Laden");
-      }
+let selectedCategory =
+  "Alle";
 
-      products = await response.json();
 
-      createCategories();
-      renderProducts();
-
-    } catch (error) {
-      console.error(error);
-
-      productsContainer.innerHTML =
-        '<div class="message">Produkte konnten nicht geladen werden.</div>';
-    }
-  }
-
-
-  function createCategories() {
-
-    const categories = [
-      "Alle",
-      ...new Set(
-        products
-          .map(product => product.category)
-          .filter(Boolean)
-      )
-    ];
-
-    categoriesContainer.innerHTML = "";
-
-    categories.forEach(category => {
-
-      const button = document.createElement("button");
-
-      button.className = "category-button";
-
-      if (category === selectedCategory) {
-        button.classList.add("active");
-      }
-
-      button.textContent = category;
-
-      button.addEventListener("click", function () {
-        selectedCategory = category;
-        createCategories();
-        renderProducts();
-      });
-
-      categoriesContainer.appendChild(button);
-    });
-  }
-
-
-  function renderProducts() {
-
-    const search =
-      searchInput.value.trim().toLowerCase();
-
-    const filtered = products.filter(product => {
-
-      const searchableText = [
-        product.name,
-        product.category,
-        product.description,
-        product.keywords
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      const matchesSearch =
-        searchableText.includes(search);
-
-      const matchesCategory =
-        selectedCategory === "Alle" ||
-        product.category === selectedCategory;
-
-      return matchesSearch && matchesCategory;
-    });
-
-
-    productsContainer.innerHTML = "";
-
-
-    if (filtered.length === 0) {
-      productsContainer.innerHTML =
-        '<div class="message">Kein passendes Produkt gefunden.</div>';
-
-      return;
-    }
-
-
-    filtered.forEach(product => {
-
-      const card = document.createElement("div");
-      card.className = "product-card";
-
-
-      if (product.image_url) {
-
-        const image = document.createElement("img");
-
-        image.className = "product-image";
-        image.src = product.image_url;
-        image.alt = product.name || "Produkt";
-        image.loading = "lazy";
-
-        image.onerror = function () {
-          this.style.display = "none";
-        };
-
-        card.appendChild(image);
-      }
-
-
-      if (product.category) {
-
-        const category = document.createElement("div");
-
-        category.className = "category-label";
-        category.textContent = product.category;
-
-        card.appendChild(category);
-      }
-
-
-      const title = document.createElement("h2");
-
-      title.textContent =
-        product.name || "Produkt";
-
-      card.appendChild(title);
-
-
-      if (product.description) {
-
-        const description = document.createElement("p");
-
-        description.className = "description";
-        description.textContent = product.description;
-
-        card.appendChild(description);
-      }
-
-
-      if (product.link) {
-
-        const button = document.createElement("a");
-
-        button.className = "product-link";
-
-        button.href = product.link;
-
-        button.target = "_blank";
-
-        button.rel = "noopener noreferrer";
-
-        button.textContent = "Zum Produkt →";
-
-        card.appendChild(button);
-      }
-
-
-      productsContainer.appendChild(card);
-    });
-  }
-
-
-  searchInput.addEventListener(
-    "input",
-    renderProducts
+const productsContainer =
+  document.getElementById(
+    "products"
   );
 
 
-  loadProducts();
+const categoriesContainer =
+  document.getElementById(
+    "categories"
+  );
+
+
+const searchInput =
+  document.getElementById(
+    "search"
+  );
+
+
+
+/* ============================================
+   PRODUKTE LADEN
+============================================ */
+
+async function loadProducts() {
+
+
+  try {
+
+
+    const response =
+      await fetch(
+
+        `${SUPABASE_URL}/rest/v1/products?select=*&active=eq.true&order=id.asc`,
+
+        {
+
+          headers: {
+
+            "apikey":
+              SUPABASE_KEY,
+
+            "Authorization":
+              `Bearer ${SUPABASE_KEY}`
+
+          }
+
+        }
+
+      );
+
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        "Produkte konnten nicht geladen werden."
+      );
+
+    }
+
+
+
+    products =
+      await response.json();
+
+
+
+    createCategories();
+
+
+    renderProducts();
+
+
+
+  }
+
+
+  catch (error) {
+
+
+    console.error(
+      error
+    );
+
+
+    productsContainer.innerHTML =
+
+      `<div class="message">
+        Produkte konnten nicht geladen werden.
+      </div>`;
+
+  }
+
+}
+
+
+
+/* ============================================
+   KATEGORIEN ERSTELLEN
+============================================ */
+
+function createCategories() {
+
+
+  const categories = [
+
+    "Alle",
+
+    ...new Set(
+
+      products
+
+        .map(
+          product =>
+            product.category
+        )
+
+        .filter(Boolean)
+
+    )
+
+  ];
+
+
+
+  categoriesContainer.innerHTML =
+    "";
+
+
+
+  categories.forEach(
+    category => {
+
+
+      const button =
+        document.createElement(
+          "button"
+        );
+
+
+      button.className =
+        "category-button";
+
+
+      button.textContent =
+        category;
+
+
+
+      if (
+        category ===
+        selectedCategory
+      ) {
+
+        button.classList.add(
+          "active"
+        );
+
+      }
+
+
+
+      button.addEventListener(
+        "click",
+        () => {
+
+
+          selectedCategory =
+            category;
+
+
+          createCategories();
+
+
+          renderProducts();
+
+        }
+      );
+
+
+
+      categoriesContainer
+        .appendChild(
+          button
+        );
+
+    }
+
+  );
+
+}
+
+
+
+/* ============================================
+   PRODUKTE ANZEIGEN
+============================================ */
+
+function renderProducts() {
+
+
+  const search =
+    searchInput
+      .value
+      .trim()
+      .toLowerCase();
+
+
+
+  const filtered =
+    products.filter(
+      product => {
+
+
+        const searchableText = [
+
+          product.name,
+
+          product.category,
+
+          product.description,
+
+          product.keywords
+
+        ]
+
+        .filter(Boolean)
+
+        .join(" ")
+
+        .toLowerCase();
+
+
+
+        const matchesSearch =
+
+          searchableText.includes(
+            search
+          );
+
+
+
+        const matchesCategory =
+
+          selectedCategory ===
+            "Alle"
+
+          ||
+
+          product.category ===
+            selectedCategory;
+
+
+
+        return (
+
+          matchesSearch
+
+          &&
+
+          matchesCategory
+
+        );
+
+      }
+
+    );
+
+
+
+  productsContainer.innerHTML =
+    "";
+
+
+
+  if (
+    filtered.length === 0
+  ) {
+
+
+    productsContainer.innerHTML =
+
+      `<div class="message">
+        Kein passendes Produkt gefunden.
+      </div>`;
+
+
+    return;
+
+  }
+
+
+
+  filtered.forEach(
+    product => {
+
+
+      /* PRODUKTKARTE */
+
+      const card =
+        document.createElement(
+          "article"
+        );
+
+
+      card.className =
+        "product-card";
+
+
+
+      /* =========================
+         BILDBEREICH
+      ========================= */
+
+
+      const imageArea =
+        document.createElement(
+          "div"
+        );
+
+
+      imageArea.className =
+        "image-area";
+
+
+
+      if (
+        product.image_url
+      ) {
+
+
+        const image =
+          document.createElement(
+            "img"
+          );
+
+
+        image.className =
+          "product-image";
+
+
+        image.src =
+          product.image_url;
+
+
+        image.alt =
+          product.name ||
+          "Produkt";
+
+
+        image.loading =
+          "lazy";
+
+
+
+        image.onerror =
+          function() {
+
+
+            imageArea.innerHTML =
+
+              `<div class="no-image">
+                Kein Bild
+              </div>`;
+
+          };
+
+
+
+        imageArea.appendChild(
+          image
+        );
+
+
+      }
+
+
+      else {
+
+
+        imageArea.innerHTML =
+
+          `<div class="no-image">
+            Kein Bild
+          </div>`;
+
+      }
+
+
+
+      card.appendChild(
+        imageArea
+      );
+
+
+
+      /* =========================
+         PRODUKTINHALT
+      ========================= */
+
+
+      const content =
+        document.createElement(
+          "div"
+        );
+
+
+      content.className =
+        "product-content";
+
+
+
+      /* KATEGORIE */
+
+
+      if (
+        product.category
+      ) {
+
+
+        const category =
+          document.createElement(
+            "div"
+          );
+
+
+        category.className =
+          "category-label";
+
+
+        category.textContent =
+          product.category;
+
+
+        content.appendChild(
+          category
+        );
+
+      }
+
+
+
+      /* NAME */
+
+
+      const title =
+        document.createElement(
+          "h2"
+        );
+
+
+      title.textContent =
+        product.name ||
+        "Produkt";
+
+
+      content.appendChild(
+        title
+      );
+
+
+
+      /* BESCHREIBUNG */
+
+
+      if (
+        product.description
+      ) {
+
+
+        const description =
+          document.createElement(
+            "p"
+          );
+
+
+        description.className =
+          "description";
+
+
+        description.textContent =
+          product.description;
+
+
+        content.appendChild(
+          description
+        );
+
+      }
+
+
+
+      /* =========================
+         PRODUKTLINK
+
+         WICHTIG:
+         Deine Spalte heißt "link"
+      ========================= */
+
+
+      if (
+        product.link
+      ) {
+
+
+        const link =
+          document.createElement(
+            "a"
+          );
+
+
+        link.className =
+          "product-link";
+
+
+        link.href =
+          product.link;
+
+
+        link.target =
+          "_blank";
+
+
+        link.rel =
+          "noopener noreferrer sponsored";
+
+
+        link.textContent =
+          "Zum Produkt →";
+
+
+        content.appendChild(
+          link
+        );
+
+      }
+
+
+
+      card.appendChild(
+        content
+      );
+
+
+
+      productsContainer
+        .appendChild(
+          card
+        );
+
+    }
+
+  );
+
+}
+
+
+
+/* ============================================
+   SUCHLEISTE
+============================================ */
+
+searchInput.addEventListener(
+
+  "input",
+
+  renderProducts
+
+);
+
+
+
+/* ============================================
+   START
+============================================ */
+
+loadProducts();
+
+
 </script>
 
+
 </body>
+
 </html>
