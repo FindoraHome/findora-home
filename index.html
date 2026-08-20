@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Findora Home</title>
+
+  <title>FindoraHome</title>
 
   <style>
     * {
@@ -17,260 +18,514 @@
       color: #222;
     }
 
-    .container {
-      max-width: 850px;
-      margin: auto;
-      padding: 30px 18px 60px;
-    }
-
     header {
+      background: white;
+      border-bottom: 1px solid #ddd;
+      padding: 22px;
       text-align: center;
-      margin-bottom: 30px;
     }
 
-    h1 {
-      margin-bottom: 8px;
-      font-size: 34px;
+    header h1 {
+      margin: 0;
+      font-size: 32px;
     }
 
-    .subtitle {
+    header p {
+      margin: 8px 0 0;
       color: #666;
-      margin-top: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 30px 20px;
+    }
+
+    .search-box {
+      margin-bottom: 25px;
     }
 
     #search {
       width: 100%;
-      padding: 17px 20px;
-      border: 1px solid #ddd;
-      border-radius: 15px;
-      font-size: 17px;
-      background: white;
-      margin: 20px 0 25px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 16px;
     }
 
     .categories {
       display: flex;
-      gap: 9px;
-      overflow-x: auto;
-      padding-bottom: 12px;
-      margin-bottom: 25px;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 30px;
+    }
+
+    .category-btn {
+      padding: 10px 16px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+
+    .category-btn:hover,
+    .category-btn.active {
+      background: #222;
+      color: white;
+    }
+
+    #products {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #e5e5e5;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .card img {
+      width: 100%;
+      height: 210px;
+      object-fit: cover;
+      background: #eee;
+    }
+
+    .card-content {
+      padding: 18px;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
     }
 
     .category {
-      border: 1px solid #ddd;
-      background: white;
-      padding: 10px 15px;
-      border-radius: 20px;
-      cursor: pointer;
-      white-space: nowrap;
+      display: inline-block;
+      font-size: 13px;
+      background: #eee;
+      padding: 5px 9px;
+      border-radius: 10px;
+      margin-bottom: 10px;
     }
 
-    .category.active {
-      background: #222;
-      color: white;
+    .description {
+      color: #555;
+      line-height: 1.5;
     }
 
-    .product {
-      background: white;
-      padding: 18px;
-      margin-bottom: 12px;
-      border-radius: 15px;
-      border: 1px solid #eee;
-    }
-
-    .product h3 {
-      margin: 0 0 7px;
-    }
-
-    .product small {
-      color: #777;
-    }
-
-    .product a {
+    .product-link {
       display: inline-block;
       margin-top: 12px;
-      text-decoration: none;
+      padding: 10px 14px;
       background: #222;
       color: white;
-      padding: 10px 15px;
-      border-radius: 10px;
+      text-decoration: none;
+      border-radius: 8px;
     }
 
-    #noResults {
-      display: none;
+    .product-link:hover {
+      opacity: 0.85;
+    }
+
+    #loading,
+    #noResults,
+    #error {
       text-align: center;
-      color: #777;
+      padding: 40px;
+      color: #666;
+    }
+
+    #error {
+      color: #b00020;
+    }
+
+    footer {
+      text-align: center;
       padding: 30px;
+      color: #777;
+    }
+
+    @media (max-width: 600px) {
+      header h1 {
+        font-size: 26px;
+      }
+
+      .container {
+        padding: 20px 15px;
+      }
     }
   </style>
 </head>
 
 <body>
 
+<header>
+  <h1>FindoraHome</h1>
+  <p>Finde Produkte für dein Zuhause</p>
+</header>
+
 <div class="container">
 
-  <header>
-    <h1>Findora Home</h1>
-    <p class="subtitle">Entdecke unsere Produktempfehlungen</p>
-  </header>
+  <div class="search-box">
+    <input
+      id="search"
+      type="text"
+      placeholder="Produkt, Kategorie oder Stichwort suchen..."
+    >
+  </div>
 
-  <input
-    id="search"
-    type="search"
-    placeholder="🔎 Produkt suchen …"
-    autocomplete="off"
-  >
+  <div id="categories" class="categories"></div>
 
-  <div class="categories" id="categories"></div>
+  <div id="loading">
+    Produkte werden geladen...
+  </div>
+
+  <div id="error" style="display:none;"></div>
 
   <div id="products"></div>
 
-  <div id="noResults">
+  <div id="noResults" style="display:none;">
     Kein passendes Produkt gefunden.
   </div>
 
 </div>
 
+<footer>
+  © FindoraHome
+</footer>
+
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 
-const products = [
-  {
-    name: "Beispiel Küchenhelfer",
-    category: "Küche & Küchenhelfer",
-    shop: "Amazon",
-    url: "https://www.amazon.de/"
-  },
-  {
-    name: "Beispiel Aufbewahrungsbox",
-    category: "Aufbewahrung & Organisation",
-    shop: "IKEA",
-    url: "https://www.ikea.com/de/de/"
-  },
-  {
-    name: "Beispiel Nachtlicht",
-    category: "Beleuchtung",
-    shop: "Amazon",
-    url: "https://www.amazon.de/"
+  /* =========================
+     SUPABASE VERBINDUNG
+     ========================= */
+
+  const SUPABASE_URL =
+    "https://wcpifcdwomjzmvnvgqwr.supabase.co";
+
+  const SUPABASE_KEY =
+    "sb_publishable_E2eo9QKlcUtWkpVuRPOmPw_n95EvT0i";
+
+  const supabaseClient =
+    window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+
+  /* =========================
+     PRODUKTE
+     ========================= */
+
+  let products = [];
+  let selectedCategory = "Alle";
+
+
+  /* =========================
+     PRODUKTE AUS SUPABASE LADEN
+     ========================= */
+
+  async function loadProducts() {
+
+    const loading =
+      document.getElementById("loading");
+
+    const errorBox =
+      document.getElementById("error");
+
+    loading.style.display = "block";
+    errorBox.style.display = "none";
+
+    const { data, error } =
+      await supabaseClient
+        .from("products")
+        .select("*")
+        .eq("active", true)
+        .order("created_at", {
+          ascending: false
+        });
+
+    loading.style.display = "none";
+
+
+    if (error) {
+
+      console.error(error);
+
+      errorBox.textContent =
+        "Produkte konnten nicht geladen werden.";
+
+      errorBox.style.display = "block";
+
+      return;
+    }
+
+
+    products = data || [];
+
+    createCategories();
+    renderProducts();
   }
-];
 
-const categories = [
-  "Alle",
-  "Küche & Küchenhelfer",
-  "Haushalt",
-  "Reinigung & Waschen",
-  "Aufbewahrung & Organisation",
-  "Möbel",
-  "Sofas & Sessel",
-  "Tische & Stühle",
-  "Schreibtische & Büromöbel",
-  "Schlafen & Matratzen",
-  "Bad & Badaccessoires",
-  "Deko & Wohnaccessoires",
-  "Textilien",
-  "Teppiche & Fußmatten",
-  "Beleuchtung",
-  "Smart Home",
-  "Technik & Elektronik",
-  "Haushaltsgeräte",
-  "Heimwerken",
-  "Garten",
-  "Pflanzen & Pflanzzubehör",
-  "Outdoor & Balkon",
-  "Grillen",
-  "Baby",
-  "Kinder & Spielzeug",
-  "Haustiere & Tierbedarf",
-  "Auto & Autozubehör",
-  "Reisen & Reisebedarf",
-  "Bücher",
-  "Fotografie",
-  "Kunst & Kreatives",
-  "Familie & Eltern",
-  "Hochzeit",
-  "Lernen & Bildung",
-  "Lifestyle",
-  "Geschenke & Geschenkideen",
-  "Angebote & Bestseller"
-];
 
-let selectedCategory = "Alle";
+  /* =========================
+     KATEGORIEN
+     ========================= */
 
-function createCategories() {
-  const container = document.getElementById("categories");
+  function createCategories() {
 
-  categories.forEach(category => {
-    const button = document.createElement("button");
+    const container =
+      document.getElementById("categories");
 
-    button.textContent = category;
-    button.className =
-      "category" + (category === "Alle" ? " active" : "");
+    container.innerHTML = "";
 
-    button.onclick = () => {
-      selectedCategory = category;
 
-      document.querySelectorAll(".category").forEach(btn => {
-        btn.classList.remove("active");
+    const categories = [
+      "Alle",
+      ...new Set(
+        products
+          .map(product => product.category)
+          .filter(Boolean)
+      )
+    ];
+
+
+    categories.forEach(category => {
+
+      const button =
+        document.createElement("button");
+
+      button.className =
+        "category-btn";
+
+      button.textContent =
+        category;
+
+
+      if (category === selectedCategory) {
+        button.classList.add("active");
+      }
+
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          selectedCategory = category;
+
+          createCategories();
+          renderProducts();
+
+        }
+      );
+
+
+      container.appendChild(button);
+
+    });
+  }
+
+
+  /* =========================
+     PRODUKTE ANZEIGEN
+     ========================= */
+
+  function renderProducts() {
+
+    const container =
+      document.getElementById("products");
+
+    const noResults =
+      document.getElementById("noResults");
+
+    const search =
+      document
+        .getElementById("search")
+        .value
+        .toLowerCase()
+        .trim();
+
+
+    container.innerHTML = "";
+
+
+    const filtered =
+      products.filter(product => {
+
+        const matchesCategory =
+          selectedCategory === "Alle" ||
+          product.category === selectedCategory;
+
+
+        const searchableText = [
+          product.name,
+          product.category,
+          product.description,
+          product.keywords
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+
+        const matchesSearch =
+          searchableText.includes(search);
+
+
+        return (
+          matchesCategory &&
+          matchesSearch
+        );
+
       });
 
-      button.classList.add("active");
-      renderProducts();
-    };
 
-    container.appendChild(button);
-  });
-}
+    noResults.style.display =
+      filtered.length === 0
+        ? "block"
+        : "none";
 
-function renderProducts() {
-  const search =
-    document.getElementById("search").value.toLowerCase().trim();
 
-  const container = document.getElementById("products");
-  const noResults = document.getElementById("noResults");
+    filtered.forEach(product => {
 
-  container.innerHTML = "";
+      const card =
+        document.createElement("div");
 
-  const filtered = products.filter(product => {
+      card.className = "card";
 
-    const matchesCategory =
-      selectedCategory === "Alle" ||
-      product.category === selectedCategory;
 
-    const searchableText =
-      `${product.name} ${product.category} ${product.shop}`.toLowerCase();
+      /* Bild */
 
-    const matchesSearch =
-      searchableText.includes(search);
+      if (product.image_url) {
 
-    return matchesCategory && matchesSearch;
-  });
+        const image =
+          document.createElement("img");
 
-  filtered.forEach(product => {
+        image.src =
+          product.image_url;
 
-    const card = document.createElement("div");
-    card.className = "product";
+        image.alt =
+          product.name || "Produkt";
 
-    card.innerHTML = `
-      <h3>${product.name}</h3>
-      <small>${product.category} · ${product.shop}</small><br>
-      <a href="${product.url}" target="_blank" rel="nofollow sponsored">
-        Produkt ansehen
-      </a>
-    `;
+        image.loading =
+          "lazy";
 
-    container.appendChild(card);
-  });
+        card.appendChild(image);
+      }
 
-  noResults.style.display =
-    filtered.length === 0 ? "block" : "none";
-}
 
-document
-  .getElementById("search")
-  .addEventListener("input", renderProducts);
+      const content =
+        document.createElement("div");
 
-createCategories();
-renderProducts();
+      content.className =
+        "card-content";
+
+
+      /* Kategorie */
+
+      if (product.category) {
+
+        const category =
+          document.createElement("div");
+
+        category.className =
+          "category";
+
+        category.textContent =
+          product.category;
+
+        content.appendChild(category);
+      }
+
+
+      /* Name */
+
+      const title =
+        document.createElement("h3");
+
+      title.textContent =
+        product.name ||
+        "Produkt";
+
+      content.appendChild(title);
+
+
+      /* Beschreibung */
+
+      if (product.description) {
+
+        const description =
+          document.createElement("p");
+
+        description.className =
+          "description";
+
+        description.textContent =
+          product.description;
+
+        content.appendChild(description);
+      }
+
+
+      /* Produkt-Link */
+
+      if (product.url) {
+
+        const link =
+          document.createElement("a");
+
+        link.href =
+          product.url;
+
+        link.target =
+          "_blank";
+
+        link.rel =
+          "noopener noreferrer";
+
+        link.className =
+          "product-link";
+
+        link.textContent =
+          "Produkt ansehen";
+
+        content.appendChild(link);
+      }
+
+
+      card.appendChild(content);
+
+      container.appendChild(card);
+
+    });
+  }
+
+
+  /* =========================
+     SUCHE
+     ========================= */
+
+  document
+    .getElementById("search")
+    .addEventListener(
+      "input",
+      renderProducts
+    );
+
+
+  /* =========================
+     START
+     ========================= */
+
+  loadProducts();
 
 </script>
 
