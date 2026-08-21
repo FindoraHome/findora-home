@@ -29,7 +29,8 @@ async function checkOne(product: { id: number; name: string; link: string }) {
         current = next;
         continue;
       }
-      return { productId: product.id, name: product.name, url: product.link, state: response.ok ? "ok" : "broken", status: response.status, reason: response.ok ? null : response.statusText || "HTTP-Fehler" };
+      const temporary = response.status >= 500;
+      return { productId: product.id, name: product.name, url: product.link, state: response.ok ? "ok" : temporary ? "temporary" : "broken", status: response.status, reason: response.ok ? null : temporary ? "Vorübergehend nicht erreichbar" : response.statusText || "HTTP-Fehler" };
     }
     return { productId: product.id, name: product.name, url: product.link, state: "unsupported", status: null, reason: "Zu viele Weiterleitungen" };
   } catch (error) {
@@ -51,5 +52,5 @@ Deno.serve(async (request) => {
   if (productsError) return json({ error: productsError.message }, 500);
   const results: Array<Record<string, unknown>> = [];
   for (let index = 0; index < (products ?? []).length; index += 4) results.push(...(await Promise.all((products ?? []).slice(index, index + 4).map(product => checkOne({ id: product.id, name: product.name || "Unbenanntes Produkt", link: product.link })) )));
-  return json({ checkedAt: new Date().toISOString(), checked: results.length, broken: results.filter(result => result.state === "broken"), unsupported: results.filter(result => result.state === "unsupported"), ok: results.filter(result => result.state === "ok").length });
+  return json({ checkedAt: new Date().toISOString(), checked: results.length, broken: results.filter(result => result.state === "broken"), temporary: results.filter(result => result.state === "temporary"), unsupported: results.filter(result => result.state === "unsupported"), ok: results.filter(result => result.state === "ok").length });
 });
