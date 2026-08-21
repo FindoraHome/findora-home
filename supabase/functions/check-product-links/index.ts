@@ -16,9 +16,22 @@ async function checkOne(product: { id: number; name: string; link: string }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(parsed, { method: "HEAD", redirect: "manual", signal: controller.signal });
-    const isRedirect = response.status >= 300 && response.status < 400;
-    return { productId: product.id, name: product.name, url: product.link, state: isRedirect ? "unsupported" : response.ok ? "ok" : "broken", status: response.status, reason: isRedirect ? "Weiterleitung nicht automatisch geprüft" : response.ok ? null : response.statusText || "HTTP-Fehler" };
+    let current = parsed;
+    for (let redirects = 0; redirects < 4; redirects += 1) {
+      let response = await fetch(current, { method: "HEAD", redirect: "manual", signal: controller.signal });
+      if (response.status === 403 || response.status === 405) response = await fetch(current, { method: "GET", redirect: "manual", signal: controller.signal, headers: { Range: "bytes=0-0" } });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) return { productId: product.id, name: product.name, url: product.link, state: "unsupported", status: response.status, reason: "Weiterleitung ohne Ziel" };
+        const next = new URL(location, current);
+        const nextHost = next.hostname.toLowerCase().replace(/^www\./, "");
+        if (!allowedHosts.has(nextHost)) return { productId: product.id, name: product.name, url: product.link, state: "unsupported", status: response.status, reason: "Weiterleitung zu nicht freigegebener Domain" };
+        current = next;
+        continue;
+      }
+      return { productId: product.id, name: product.name, url: product.link, state: response.ok ? "ok" : "broken", status: response.status, reason: response.ok ? null : response.statusText || "HTTP-Fehler" };
+    }
+    return { productId: product.id, name: product.name, url: product.link, state: "unsupported", status: null, reason: "Zu viele Weiterleitungen" };
   } catch (error) {
     return { productId: product.id, name: product.name, url: product.link, state: "broken", status: null, reason: error instanceof Error && error.name === "AbortError" ? "Zeitüberschreitung" : "Link nicht erreichbar" };
   } finally { clearTimeout(timeout); }
