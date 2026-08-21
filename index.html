@@ -241,6 +241,10 @@ main{max-width:1280px;padding:30px 24px 42px}
 .message{padding:52px 30px;color:var(--muted);font:400 21px Georgia,"Times New Roman",serif}
 .site-footer{background:#eee4da;border-top:1px solid #e1d2c4}.footer-inner{max-width:1280px;padding:30px 24px}.footer-brand{font-size:20px;color:var(--ink)}.footer-note{color:#85786d}
 @media(max-width:600px){header{padding-bottom:24px}.logo{height:78px}.logo img{width:78px;height:78px}h1{font-size:30px}.hero-intro{padding:28px 18px;border-radius:20px}.hero-intro h2{font-size:28px}main{padding:22px 16px 34px}.image-box{height:220px}}
+header:after{content:"";display:block;width:46px;height:1px;margin:16px auto 0;background:var(--gold);box-shadow:18px 0 0 rgba(169,140,112,.35),-18px 0 0 rgba(169,140,112,.35)}
+main{position:relative;isolation:isolate}main:before,main:after{content:"";position:absolute;z-index:-1;border-radius:50%;pointer-events:none;opacity:.65}main:before{width:270px;height:270px;left:-190px;top:210px;background:radial-gradient(circle,#eadfd5 0%,rgba(234,223,213,0) 70%)}main:after{width:330px;height:330px;right:-230px;top:620px;background:radial-gradient(circle,#eee2d7 0%,rgba(238,226,215,0) 70%)}
+.collection-heading{text-align:center;margin:30px 0 20px}.collection-kicker{margin:0 0 7px;color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}.collection-heading h2{margin:0;font:400 27px Georgia,"Times New Roman",serif;color:var(--ink)}.collection-ornament{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:12px;color:var(--gold);font-size:12px}.collection-ornament:before,.collection-ornament:after{content:"";width:42px;height:1px;background:#d7c5b5}.collection-ornament span{font-size:15px;line-height:1}
+.hero-intro p:last-child:after{content:"✦";display:block;margin-top:14px;color:var(--gold);font-size:13px;letter-spacing:.4em}
 </style>
 </head>
 
@@ -294,6 +298,12 @@ main{max-width:1280px;padding:30px 24px 42px}
   <h2 id="hero-title">Schöne Dinge für ein Zuhause, das sich nach dir anfühlt.</h2>
   <p>Entdecke ausgewählte Produkte, kleine Lieblingsstücke und zeitlose Ideen für jeden Raum.</p>
 </section>
+
+<div class="collection-heading" aria-label="Produktauswahl">
+  <p class="collection-kicker">Mit Liebe ausgewählt</p>
+  <h2>Lieblingsstücke für dein Zuhause</h2>
+  <div class="collection-ornament" aria-hidden="true"><span>✦</span></div>
+</div>
 
 <input
   id="search"
