@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FindoraHome</title>
+<link rel="icon" type="image/png" href="findora-logo.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 *{box-sizing:border-box}
@@ -25,6 +27,17 @@ header{
 .logo{
   font-size:36px;
   margin-bottom:4px;
+  height:78px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.logo img{
+  width:78px;
+  height:78px;
+  object-fit:contain;
+  border-radius:50%;
 }
 
 h1{
@@ -190,6 +203,23 @@ main{
     grid-template-columns:1fr;
   }
 }
+
+/* ADMIN-VERWALTUNG */
+header{position:relative}
+.admin-login{position:absolute;right:24px;top:18px;border:1px solid #ddd;background:white;color:#222;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:bold;cursor:pointer}
+.admin-login:hover{background:#222;color:#fff}
+.admin-panel{display:none;background:#eee9e4;border-bottom:1px solid #ddd;padding:24px 0}
+.admin-panel.open{display:block}
+.admin-inner{max-width:1400px;margin:auto;padding:0 24px}
+.admin-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px}.admin-head h2{margin:0;font:400 28px Georgia,serif}.admin-head p{color:#666;font-size:13px;margin:4px 0 0}
+.admin-layout{display:grid;grid-template-columns:minmax(280px,390px) 1fr;gap:16px}.admin-card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:18px}.admin-card h3{font-size:16px;margin:0 0 15px}.admin-form{display:grid;gap:10px}.admin-field{display:grid;gap:5px}.admin-field label{font-size:11px;color:#666;text-transform:uppercase;font-weight:bold}.admin-field input,.admin-field textarea,.admin-field select,.category-add input{width:100%;padding:9px;border:1px solid #ccc;border-radius:7px;background:#fff;font-size:13px}.admin-field textarea{min-height:80px;resize:vertical}.admin-actions{display:flex;gap:7px;margin-top:4px}.admin-btn{border:1px solid #ddd;border-radius:7px;background:#fff;padding:8px 12px;font-size:12px;font-weight:bold;cursor:pointer}.admin-btn.primary{background:#222;color:#fff;border-color:#222}.admin-btn.danger{color:#a33;border-color:#e4bcbc}.admin-note{font-size:11px;color:#777;line-height:1.4}.admin-preview{max-width:100%;height:80px;object-fit:contain;border:1px solid #eee;border-radius:7px;background:#fafafa;margin-top:5px}.admin-list{display:grid;gap:8px;max-height:450px;overflow:auto}.admin-product{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:10px;border:1px solid #eee;border-radius:8px;padding:8px}.admin-product img{width:52px;height:52px;object-fit:contain;background:#fafafa;border-radius:5px}.admin-product strong{font-size:13px;display:block}.admin-product span{display:block;color:#777;font-size:11px;margin-top:3px}.category-manager{margin-top:16px}.category-add{display:flex;gap:7px}.category-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}.category-pill{display:flex;align-items:center;gap:5px;background:#f4f1ee;border:1px solid #e5ddd7;border-radius:15px;padding:5px 7px 5px 10px;font-size:11px}.category-pill button{border:0;background:transparent;color:#777;cursor:pointer;font-size:15px;line-height:12px;padding:0}.admin-notice{display:none;padding:9px 11px;border-radius:7px;font-size:12px;margin-bottom:12px}.admin-notice.show{display:block}.admin-notice.error{background:#fff0f0;color:#a33}.admin-notice.success{background:#eef8ef;color:#286b33}.login-backdrop{display:none;position:fixed;z-index:20;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;padding:18px}.login-backdrop.open{display:flex}.login-box{position:relative;background:#fff;border-radius:12px;padding:24px;width:min(390px,100%);box-shadow:0 20px 60px rgba(0,0,0,.2)}.login-box h2{margin:0 0 7px;font:400 27px Georgia,serif}.login-box p{color:#666;font-size:13px;line-height:1.4}.login-close{position:absolute;right:12px;top:8px;background:transparent;border:0;font-size:23px;color:#777;cursor:pointer}
+@media(max-width:800px){.admin-layout{grid-template-columns:1fr}.admin-login{right:12px;top:14px}header{padding-top:50px}}
+.category-menu-row{display:flex;align-items:center;gap:10px;margin:15px 0 13px}.category-menu-button{display:flex;align-items:center;gap:9px;border:1px solid #ddd;background:#fff;border-radius:9px;padding:10px 14px;color:#222;font-size:13px;font-weight:bold;cursor:pointer}.category-menu-button:hover{background:#222;color:#fff;border-color:#222}.hamburger{font-size:18px;line-height:12px}.category-current{font-size:12px;color:#777}.category-drawer{display:none;flex-wrap:wrap;gap:8px;padding:15px;background:#fff;border:1px solid #e5ded8;border-radius:11px;margin-bottom:18px;max-height:270px;overflow:auto;box-shadow:0 9px 25px rgba(45,30,20,.08)}#categories.category-drawer{display:none}#categories.category-drawer.open{display:flex}.category-drawer .category{background:#faf8f5}.category-drawer .category.active{background:#222}
+.results-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:-2px 0 14px;color:#887e76;font-size:12px}.sort-select{border:1px solid #ddd;border-radius:8px;background:#fff;color:#555;padding:8px 10px;font-size:12px;outline:0}.sort-select:focus{border-color:#b99b81}.new-badge{position:absolute;top:10px;left:10px;background:#222;color:#fff;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:bold;letter-spacing:.02em}.image-box{position:relative}.card h2{letter-spacing:-.02em}.card p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.partner-tag{width:max-content;max-width:100%;background:#f8f1e9;color:#8b6448;padding:4px 8px;border-radius:99px;font-size:10px;margin:-3px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.partner-edit{border:1px solid #ddd!important;border-radius:6px!important;padding:4px 7px!important;font-size:10px!important;color:#5b514a!important}.partner-edit:hover{background:#fff!important;color:#222!important}
+.site-footer{border-top:1px solid #e3dcd5;background:#fff;margin-top:30px}.footer-inner{max-width:1400px;margin:auto;padding:25px 28px;display:flex;justify-content:space-between;align-items:center;gap:18px;color:#837a73;font-size:12px}.footer-brand{font:600 18px Georgia,serif;color:#342d28}.footer-note{margin:0;line-height:1.5;text-align:right}
+@media(max-width:600px){.results-toolbar{align-items:stretch;flex-direction:column}.sort-select{width:100%}.footer-inner{padding:22px 16px;display:block}.footer-note{text-align:left;margin-top:8px}}
 </style>
 </head>
 
@@ -198,13 +228,43 @@ main{
 <header>
 
   <!-- LOGO ÜBER FINDORAHOME -->
-  <div class="logo">🏠</div>
+  <div class="logo"><img src="findora-logo.png" alt="FindoraHome Logo"></div>
 
   <h1>FindoraHome</h1>
 
   <p>Finde Produkte für dein Zuhause</p>
 
+  <button id="admin-login-button" class="admin-login" type="button">Admin Login</button>
+  <button id="admin-logout-button" class="admin-login" type="button" hidden>Abmelden</button>
+
 </header>
+
+<section id="admin-panel" class="admin-panel">
+  <div class="admin-inner">
+    <div class="admin-head"><div><h2>Produktverwaltung</h2><p>Produkte, Bilder und Kategorien direkt verwalten.</p></div><span id="admin-email" class="admin-note"></span></div>
+    <div id="admin-notice" class="admin-notice"></div>
+    <div class="admin-layout">
+      <div>
+        <div class="admin-card">
+          <h3 id="admin-form-title">Neues Produkt hinzufügen</h3>
+          <form id="admin-product-form" class="admin-form">
+            <input id="admin-product-id" type="hidden">
+            <div class="admin-field"><label for="admin-name">Name *</label><input id="admin-name" required maxlength="140" placeholder="z. B. Ölspender"></div>
+            <div class="admin-field"><label for="admin-description">Beschreibung *</label><textarea id="admin-description" required maxlength="1000"></textarea></div>
+            <div class="admin-field"><label for="admin-link">Produkt-Link *</label><input id="admin-link" type="url" required placeholder="https://..."></div>
+            <div class="admin-field"><label for="admin-category">Kategorie *</label><select id="admin-category" required><option value="">Kategorie auswählen</option></select></div>
+            <div class="admin-field"><label for="admin-partner">Partnerseite</label><select id="admin-partner"><option value="">Partner auswählen (optional)</option></select></div>
+            <div class="admin-field"><label for="admin-image">Bild <span id="admin-image-required">*</span></label><input id="admin-image" type="file" accept="image/*"><span class="admin-note">Beim Bearbeiten leer lassen, um das vorhandene Bild zu behalten.</span><img id="admin-preview" class="admin-preview" alt="Bildvorschau" hidden><button id="admin-remove-image" class="admin-btn danger" type="button" hidden>Bild löschen</button></div>
+            <div class="admin-actions"><button id="admin-save" class="admin-btn primary" type="submit">Produkt speichern</button><button id="admin-cancel" class="admin-btn" type="button" hidden>Abbrechen</button></div>
+          </form>
+        </div>
+        <div class="admin-card category-manager"><h3>Kategorien verwalten</h3><form id="admin-category-form" class="category-add"><input id="admin-category-name" required maxlength="80" placeholder="Neue Kategorie"><button class="admin-btn primary" type="submit">Hinzufügen</button></form><div id="admin-category-list" class="category-list"></div></div>
+        <div class="admin-card category-manager"><h3>Partnerseiten verwalten</h3><form id="admin-partner-form" class="category-add"><input id="admin-partner-id" type="hidden"><input id="admin-partner-name" required maxlength="80" placeholder="z. B. Amazon"><button id="admin-partner-save" class="admin-btn primary" type="submit">Hinzufügen</button><button id="admin-partner-cancel" class="admin-btn" type="button" hidden>Abbrechen</button></form><div id="admin-partner-list" class="category-list"></div></div>
+      </div>
+      <div class="admin-card"><h3>Produkte <span id="admin-product-count" class="admin-note"></span></h3><div id="admin-products" class="admin-list"></div></div>
+    </div>
+  </div>
+</section>
 
 <main>
 
@@ -214,7 +274,10 @@ main{
   placeholder="Produkt, Kategorie oder Stichwort suchen..."
 >
 
-<div id="categories"></div>
+<div class="results-toolbar"><span id="results-count">Produkte werden geladen...</span><select id="sort-select" class="sort-select" aria-label="Produkte sortieren"><option value="newest">Neueste zuerst</option><option value="az">Name A–Z</option><option value="za">Name Z–A</option></select></div>
+
+<div class="category-menu-row"><button id="category-menu-button" class="category-menu-button" type="button" aria-expanded="false"><span class="hamburger">☰</span><span>Kategorien</span></button><span id="category-current" class="category-current">Alle</span></div>
+<div id="categories" class="category-drawer"></div>
 
 <div id="products">
   <div class="message">Produkte werden geladen...</div>
@@ -222,7 +285,10 @@ main{
 
 </main>
 
+<footer class="site-footer"><div class="footer-inner"><div class="footer-brand">FindoraHome</div><p class="footer-note">Ausgewählte Wohnideen für dein Zuhause.<br>Einige Produktlinks können Affiliate-Links sein.</p></div></footer>
+
 <script>
+if (false) {
 
 const SUPABASE_URL =
 "https://wcpifcdwomjzmvnvgqwr.supabase.co";
@@ -488,7 +554,68 @@ search.addEventListener(
 
 
 loadProducts();
+}
 
+</script>
+
+<div id="login-backdrop" class="login-backdrop" role="dialog" aria-modal="true">
+  <div class="login-box">
+    <button id="login-close" class="login-close" type="button" aria-label="Schließen">×</button>
+    <h2>Admin Login</h2><p>Melde dich an, um Produkte und Kategorien zu verwalten.</p>
+    <div id="login-notice" class="admin-notice"></div>
+    <form id="login-form" class="admin-form"><div class="admin-field"><label for="login-email">E-Mail</label><input id="login-email" type="email" required autocomplete="email"></div><div class="admin-field"><label for="login-password">Passwort</label><input id="login-password" type="password" required minlength="6" autocomplete="current-password"></div><div class="admin-actions"><button id="login-submit" class="admin-btn primary" type="submit">Einloggen</button><button id="signup-submit" class="admin-btn" type="button">Konto erstellen</button></div></form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const client = window.supabase.createClient("https://wcpifcdwomjzmvnvgqwr.supabase.co", "sb_publishable_E2eo9QKlcUtWkpVuRPOmPw_n95EvT0i");
+  const admin = { products: [], categories: [], partners: [], editingId: null, currentImage: "", isAdmin: false };
+  const el = id => document.getElementById(id);
+  const publicImage = path => "https://wcpifcdwomjzmvnvgqwr.supabase.co/storage/v1/object/public/product-images/" + encodeURIComponent(path).replace(/%2F/g, "/");
+  const storagePath = url => { const marker = "/storage/v1/object/public/product-images/"; return url && url.includes(marker) ? decodeURIComponent(url.split(marker)[1]) : null; };
+  function notice(message, type) { const box = el("admin-notice"); box.textContent = message; box.className = "admin-notice show " + (type || "error"); }
+  function clearNotice() { el("admin-notice").className = "admin-notice"; }
+  function categoryNames() { return [...new Set(["Alle", ...admin.categories.filter(c => c.active).map(c => c.name), ...admin.products.map(p => p.category).filter(Boolean)])]; }
+  function renderPublic() {
+    const box = document.getElementById("categories"), productsBox = document.getElementById("products"), search = document.getElementById("search"), sortSelect = document.getElementById("sort-select");
+    if (!box || !productsBox) return;
+    const current = window.__findoraCategory || "Alle", names = categoryNames(); window.__findoraCategory = names.includes(current) ? current : "Alle"; box.className = "category-drawer" + (window.__findoraCategoryOpen ? " open" : ""); el("category-current").textContent = window.__findoraCategory;
+    box.innerHTML = "";
+    names.forEach(name => { const button = document.createElement("button"); button.className = "category" + (name === window.__findoraCategory ? " active" : ""); button.type = "button"; button.textContent = name; button.onclick = () => { window.__findoraCategory = name; window.__findoraCategoryOpen = true; renderPublic(); }; box.appendChild(button); });
+    const term = (search.value || "").trim().toLowerCase();
+    const filtered = admin.products.filter(product => { const haystack = [product.name, product.partner, product.category, product.description, product.keywords].filter(Boolean).join(" ").toLowerCase(); return (window.__findoraCategory === "Alle" || product.category === window.__findoraCategory) && haystack.includes(term); });
+    const ordered = [...filtered].sort((a, b) => { if (sortSelect.value === "az") return (a.name || "").localeCompare(b.name || "", "de"); if (sortSelect.value === "za") return (b.name || "").localeCompare(a.name || "", "de"); return new Date(b.created_at || 0) - new Date(a.created_at || 0) || (b.id || 0) - (a.id || 0); });
+    el("results-count").textContent = ordered.length + (ordered.length === 1 ? " Produkt" : " Produkte");
+    productsBox.innerHTML = "";
+    if (!filtered.length) { productsBox.innerHTML = '<div class="message">Kein Produkt gefunden.</div>'; return; }
+    ordered.forEach(product => { const card = document.createElement("div"); card.className = "card"; const image = document.createElement("div"); image.className = "image-box"; if (product.image_url) { const img = document.createElement("img"); img.src = product.image_url; img.alt = product.name || "Produkt"; img.loading = "lazy"; img.onerror = () => image.innerHTML = '<span class="no-image">Bild nicht verfügbar</span>'; image.appendChild(img); } else image.innerHTML = '<span class="no-image">Bild fehlt</span>'; if (product.created_at && Date.now() - new Date(product.created_at).getTime() < 14 * 24 * 60 * 60 * 1000) { const badge = document.createElement("span"); badge.className = "new-badge"; badge.textContent = "Neu"; image.appendChild(badge); } card.appendChild(image); const content = document.createElement("div"); content.className = "content"; if (product.category) { const tag = document.createElement("div"); tag.className = "tag"; tag.textContent = product.category; content.appendChild(tag); } if (product.partner) { const partner = document.createElement("div"); partner.className = "partner-tag"; partner.textContent = "Bei " + product.partner; content.appendChild(partner); } const title = document.createElement("h2"); title.textContent = product.name || "Produkt"; content.appendChild(title); if (product.description) { const desc = document.createElement("p"); desc.textContent = product.description; content.appendChild(desc); } if (product.link) { const link = document.createElement("a"); link.className = "product-button"; link.href = product.link; link.target = "_blank"; link.rel = "noopener noreferrer sponsored"; link.textContent = "Zum Produkt →"; content.appendChild(link); } card.appendChild(content); productsBox.appendChild(card); });
+  }
+  async function loadCatalog() { const [{ data: p, error: pe }, { data: c, error: ce }, { data: r, error: re }] = await Promise.all([client.from("products").select("*").eq("active", true).order("id", { ascending: true }), client.from("categories").select("*").eq("active", true).order("sort_order", { ascending: true }), client.from("partners").select("*").eq("active", true).order("sort_order", { ascending: true })]); if (pe) throw pe; if (ce) throw ce; if (re) throw re; admin.products = p || []; admin.categories = c || []; admin.partners = r || []; renderPublic(); }
+  async function loadAdminData() { const [{ data: p, error: pe }, { data: c, error: ce }, { data: r, error: re }] = await Promise.all([client.from("products").select("*").order("id", { ascending: true }), client.from("categories").select("*").order("sort_order", { ascending: true }), client.from("partners").select("*").order("sort_order", { ascending: true })]); if (pe) throw pe; if (ce) throw ce; if (re) throw re; admin.products = p || []; admin.categories = c || []; admin.partners = r || []; renderPublic(); renderAdminProducts(); renderAdminCategories(); renderAdminPartners(); fillCategorySelect(); fillPartnerSelect(); }
+  function fillCategorySelect() { const select = el("admin-category"), value = select.value, names = [...new Set([...admin.categories.filter(c => c.active).map(c => c.name), ...admin.products.map(p => p.category).filter(Boolean)])]; select.innerHTML = '<option value="">Kategorie auswählen</option>'; names.forEach(name => { const option = document.createElement("option"); option.value = name; option.textContent = name; select.appendChild(option); }); if (value) select.value = value; }
+  function fillPartnerSelect() { const select = el("admin-partner"), value = select.value; select.innerHTML = '<option value="">Partner auswählen (optional)</option>'; admin.partners.filter(p => p.active).forEach(partner => { const option = document.createElement("option"); option.value = partner.name; option.textContent = partner.name; select.appendChild(option); }); if (value) select.value = value; }
+  function renderAdminProducts() { const box = el("admin-products"); el("admin-product-count").textContent = "(" + admin.products.length + ")"; box.innerHTML = ""; if (!admin.products.length) { box.innerHTML = '<span class="admin-note">Noch keine Produkte vorhanden.</span>'; return; } admin.products.forEach(product => { const row = document.createElement("div"); row.className = "admin-product"; const image = document.createElement("img"); image.alt = ""; if (product.image_url) image.src = product.image_url; const info = document.createElement("div"), title = document.createElement("strong"), meta = document.createElement("span"); title.textContent = product.name || "Ohne Namen"; meta.textContent = (product.category || "Keine Kategorie") + (product.partner ? " · " + product.partner : ""); info.append(title, meta); const actions = document.createElement("div"), edit = document.createElement("button"), del = document.createElement("button"); actions.className = "admin-actions"; edit.className = "admin-btn"; edit.type = "button"; edit.textContent = "Bearbeiten"; edit.onclick = () => editProduct(product); del.className = "admin-btn danger"; del.type = "button"; del.textContent = "Löschen"; del.onclick = () => deleteProduct(product); actions.append(edit, del); row.append(image, info, actions); box.appendChild(row); }); }
+  function renderAdminCategories() { const box = el("admin-category-list"); box.innerHTML = ""; admin.categories.forEach(category => { const pill = document.createElement("div"), text = document.createElement("span"), del = document.createElement("button"); pill.className = "category-pill"; text.textContent = category.name; del.type = "button"; del.textContent = "×"; del.title = "Kategorie löschen"; del.onclick = () => deleteCategory(category); pill.append(text, del); box.appendChild(pill); }); }
+  function renderAdminPartners() { const box = el("admin-partner-list"); box.innerHTML = ""; admin.partners.forEach(partner => { const pill = document.createElement("div"), text = document.createElement("span"), edit = document.createElement("button"), del = document.createElement("button"); pill.className = "category-pill"; text.textContent = partner.name; edit.className = "partner-edit"; edit.type = "button"; edit.textContent = "Bearbeiten"; edit.onclick = () => editPartner(partner); del.type = "button"; del.textContent = "×"; del.title = "Partner löschen"; del.onclick = () => deletePartner(partner); pill.append(text, edit, del); box.appendChild(pill); }); }
+  function resetProductForm() { admin.editingId = null; admin.currentImage = ""; el("admin-product-form").reset(); el("admin-form-title").textContent = "Neues Produkt hinzufügen"; el("admin-save").textContent = "Produkt speichern"; el("admin-cancel").hidden = true; el("admin-image-required").textContent = "*"; el("admin-preview").hidden = true; el("admin-remove-image").hidden = true; }
+  function editProduct(product) { admin.editingId = product.id; admin.currentImage = product.image_url || ""; el("admin-form-title").textContent = "Produkt bearbeiten"; el("admin-save").textContent = "Änderungen speichern"; el("admin-cancel").hidden = false; el("admin-image-required").textContent = ""; el("admin-name").value = product.name || ""; el("admin-description").value = product.description || ""; el("admin-link").value = product.link || ""; el("admin-category").value = product.category || ""; el("admin-partner").value = product.partner || ""; el("admin-image").value = ""; const preview = el("admin-preview"); if (admin.currentImage) { preview.src = admin.currentImage; preview.hidden = false; el("admin-remove-image").hidden = false; } else { preview.hidden = true; el("admin-remove-image").hidden = true; } el("admin-name").focus(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  async function uploadImage(file) { const extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg", path = crypto.randomUUID() + "." + extension; const { error } = await client.storage.from("product-images").upload(path, file, { cacheControl: "3600", upsert: false }); if (error) throw error; return publicImage(path); }
+  async function saveProduct(event) { event.preventDefault(); const button = el("admin-save"), wasEdit = Boolean(admin.editingId), oldImagePath = storagePath(admin.currentImage); button.disabled = true; clearNotice(); try { const file = el("admin-image").files[0]; if (!admin.editingId && !file) throw new Error("Bitte ein Produktbild auswählen."); const imageUrl = file ? await uploadImage(file) : admin.currentImage; const payload = { name: el("admin-name").value.trim(), description: el("admin-description").value.trim(), link: el("admin-link").value.trim(), category: el("admin-category").value, partner: el("admin-partner").value || null, image_url: imageUrl || null, active: true }; const result = admin.editingId ? await client.from("products").update(payload).eq("id", admin.editingId) : await client.from("products").insert(payload); if (result.error) throw result.error; if (file && oldImagePath) await client.storage.from("product-images").remove([oldImagePath]); resetProductForm(); await loadAdminData(); notice(wasEdit ? "Produkt aktualisiert." : "Produkt gespeichert.", "success"); } catch (error) { console.error(error); notice("Speichern fehlgeschlagen: " + (error.message || "Unbekannter Fehler"), "error"); } finally { button.disabled = false; } }
+  async function removeProductImage() { if (!admin.editingId || !admin.currentImage || !confirm("Dieses Produktbild wirklich löschen?")) return; try { const path = storagePath(admin.currentImage); if (path) { const result = await client.storage.from("product-images").remove([path]); if (result.error) throw result.error; } const result = await client.from("products").update({ image_url: null }).eq("id", admin.editingId); if (result.error) throw result.error; admin.currentImage = ""; el("admin-preview").hidden = true; el("admin-remove-image").hidden = true; await loadAdminData(); notice("Produktbild gelöscht.", "success"); } catch (error) { notice("Bild konnte nicht gelöscht werden: " + (error.message || "Unbekannter Fehler"), "error"); } }
+  async function deleteProduct(product) { if (!confirm('Produkt „' + product.name + '“ wirklich löschen?')) return; try { const result = await client.from("products").delete().eq("id", product.id); if (result.error) throw result.error; const path = storagePath(product.image_url); if (path) await client.storage.from("product-images").remove([path]); await loadAdminData(); notice("Produkt gelöscht.", "success"); } catch (error) { notice("Löschen fehlgeschlagen: " + (error.message || "Unbekannter Fehler"), "error"); } }
+  async function addCategory(event) { event.preventDefault(); const input = el("admin-category-name"), name = input.value.trim(); if (!name) return; const button = event.submitter || event.currentTarget.querySelector("button[type=submit]"); if (button) button.disabled = true; clearNotice(); try { const result = await client.rpc("create_category", { category_name: name }); if (result.error) throw result.error; input.value = ""; await loadAdminData(); notice("Kategorie hinzugefügt.", "success"); } catch (error) { console.error(error); const code = error && error.code; const message = error && error.message; notice(code === "23505" ? "Diese Kategorie gibt es bereits." : "Kategorie konnte nicht angelegt werden: " + (message || "Unbekannter Fehler"), "error"); } finally { if (button) button.disabled = false; } }
+  async function deleteCategory(category) { const used = admin.products.some(p => p.category === category.name); if (!confirm(used ? 'Die Kategorie wird noch verwendet. Trotzdem löschen?' : 'Kategorie „' + category.name + '“ löschen?')) return; try { const result = await client.from("categories").delete().eq("id", category.id); if (result.error) throw result.error; await loadAdminData(); notice("Kategorie gelöscht.", "success"); } catch (error) { notice("Kategorie konnte nicht gelöscht werden: " + (error.message || "Unbekannter Fehler"), "error"); } }
+  function resetPartnerForm() { el("admin-partner-id").value = ""; el("admin-partner-name").value = ""; el("admin-partner-save").textContent = "Hinzufügen"; el("admin-partner-cancel").hidden = true; }
+  function editPartner(partner) { el("admin-partner-id").value = partner.id; el("admin-partner-name").value = partner.name; el("admin-partner-save").textContent = "Speichern"; el("admin-partner-cancel").hidden = false; el("admin-partner-name").focus(); }
+  async function addPartner(event) { event.preventDefault(); const input = el("admin-partner-name"), name = input.value.trim(), partnerId = el("admin-partner-id").value; if (!name) return; try { if (partnerId) { const oldPartner = admin.partners.find(p => String(p.id) === String(partnerId)); const result = await client.from("partners").update({ name }).eq("id", partnerId); if (result.error) throw result.error; if (oldPartner && oldPartner.name !== name) { const productUpdate = await client.from("products").update({ partner: name }).eq("partner", oldPartner.name); if (productUpdate.error) throw productUpdate.error; } resetPartnerForm(); await loadAdminData(); notice("Partnerseite aktualisiert.", "success"); } else { const result = await client.from("partners").insert({ name, sort_order: admin.partners.length, active: true }); if (result.error) throw result.error; resetPartnerForm(); await loadAdminData(); notice("Partnerseite hinzugefügt.", "success"); } } catch (error) { notice(error.code === "23505" ? "Diese Partnerseite gibt es bereits." : "Partnerseite konnte nicht gespeichert werden.", "error"); } }
+  async function deletePartner(partner) { const used = admin.products.some(p => p.partner === partner.name); if (!confirm(used ? 'Dieser Partner ist noch einem Produkt zugeordnet. Trotzdem löschen?' : 'Partnerseite „' + partner.name + '“ löschen?')) return; try { const result = await client.from("partners").delete().eq("id", partner.id); if (result.error) throw result.error; if (used) { const productUpdate = await client.from("products").update({ partner: null }).eq("partner", partner.name); if (productUpdate.error) throw productUpdate.error; } resetPartnerForm(); await loadAdminData(); notice("Partnerseite gelöscht.", "success"); } catch (error) { notice("Partnerseite konnte nicht gelöscht werden: " + (error.message || "Unbekannter Fehler"), "error"); } }
+  async function updateAuth(session) { if (!session) { admin.isAdmin = false; el("admin-panel").classList.remove("open"); el("admin-login-button").hidden = false; el("admin-logout-button").hidden = true; return; } let result = await client.rpc("is_admin"); admin.isAdmin = !result.error && result.data === true; if (!admin.isAdmin) { const claim = await client.rpc("claim_first_admin"); if (!claim.error && claim.data === true) { result = await client.rpc("is_admin"); admin.isAdmin = !result.error && result.data === true; } } if (!admin.isAdmin) { el("admin-email").textContent = "Kein Admin-Zugriff"; return; } el("admin-panel").classList.add("open"); el("admin-login-button").hidden = true; el("admin-logout-button").hidden = false; el("admin-email").textContent = session.user.email || "Admin"; try { await loadAdminData(); } catch (error) { notice("Verwaltung konnte nicht geladen werden.", "error"); } }
+  async function login(event) { event.preventDefault(); const button = el("login-submit"); button.disabled = true; el("login-notice").className = "admin-notice"; const result = await client.auth.signInWithPassword({ email: el("login-email").value.trim(), password: el("login-password").value }); if (result.error) { el("login-notice").textContent = "Login fehlgeschlagen. Bitte E-Mail und Passwort prüfen."; el("login-notice").className = "admin-notice show error"; button.disabled = false; return; } el("login-backdrop").classList.remove("open"); el("login-form").reset(); button.disabled = false; }
+  async function signup() { if (!el("login-form").reportValidity()) return; const button = el("signup-submit"); button.disabled = true; el("login-notice").className = "admin-notice"; const result = await client.auth.signUp({ email: el("login-email").value.trim(), password: el("login-password").value }); if (result.error) { el("login-notice").textContent = result.error.message || "Konto konnte nicht erstellt werden."; el("login-notice").className = "admin-notice show error"; button.disabled = false; return; } el("login-notice").textContent = result.data.session ? "Konto erstellt. Du bist jetzt als Admin angemeldet." : "Konto erstellt. Bitte bestätige zuerst die E-Mail und logge dich danach ein."; el("login-notice").className = "admin-notice show success"; button.disabled = false; if (result.data.session) el("login-backdrop").classList.remove("open"); }
+  document.getElementById("search").addEventListener("input", renderPublic); el("sort-select").addEventListener("change", renderPublic); el("category-menu-button").onclick = () => { window.__findoraCategoryOpen = !window.__findoraCategoryOpen; el("category-menu-button").setAttribute("aria-expanded", String(window.__findoraCategoryOpen)); renderPublic(); }; el("admin-login-button").onclick = () => el("login-backdrop").classList.add("open"); el("admin-logout-button").onclick = () => client.auth.signOut(); el("login-close").onclick = () => el("login-backdrop").classList.remove("open"); el("login-backdrop").onclick = event => { if (event.target === el("login-backdrop")) el("login-backdrop").classList.remove("open"); }; el("login-form").onsubmit = login; el("signup-submit").onclick = signup; el("admin-product-form").onsubmit = saveProduct; el("admin-cancel").onclick = resetProductForm; el("admin-category-form").onsubmit = addCategory; el("admin-partner-form").onsubmit = addPartner; el("admin-partner-cancel").onclick = resetPartnerForm; el("admin-remove-image").onclick = removeProductImage; el("admin-image").onchange = event => { const file = event.target.files[0], preview = el("admin-preview"); if (!file) return; preview.src = URL.createObjectURL(file); preview.hidden = false; };
+  (async function bootAdmin() { try { await loadCatalog(); const sessionResult = await client.auth.getSession(); await updateAuth(sessionResult.data.session); client.auth.onAuthStateChange((_event, session) => setTimeout(() => updateAuth(session), 0)); } catch (error) { console.error(error); } })();
+})();
 </script>
 
 </body>
