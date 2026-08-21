@@ -686,7 +686,7 @@ loadProducts();
     if (!box || !productsBox) return;
     const current = window.__findoraCategory || "Alle", names = categoryNames(); window.__findoraCategory = names.includes(current) ? current : "Alle"; box.className = "category-drawer" + (window.__findoraCategoryOpen ? " open" : ""); el("category-current").textContent = window.__findoraCategory;
     box.innerHTML = "";
-    names.forEach(name => { const button = document.createElement("button"); button.className = "category" + (name === window.__findoraCategory ? " active" : ""); button.type = "button"; button.textContent = name; button.onclick = () => { window.__findoraCategory = name; window.__findoraCategoryOpen = true; renderPublic(); }; box.appendChild(button); });
+    names.forEach(name => { const button = document.createElement("button"); button.className = "category" + (name === window.__findoraCategory ? " active" : ""); button.type = "button"; button.textContent = name; button.onclick = () => { window.__findoraCategory = name !== "Alle" && window.__findoraCategory === name ? "Alle" : name; window.__findoraCategoryOpen = true; renderPublic(); }; box.appendChild(button); });
     const term = (search.value || "").trim().toLowerCase();
     const favorites = favoriteIds();
     const filtered = admin.products.filter(product => { const haystack = [product.name, product.partner, product.category, product.description, product.keywords].filter(Boolean).join(" ").toLowerCase(); return (window.__findoraCategory === "Alle" || product.category === window.__findoraCategory) && (!window.__findoraFavoritesOnly || favorites.has(String(product.id))) && haystack.includes(term); });
