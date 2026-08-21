@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const allowedHosts = new Set(["amazon.de", "amazon.com", "amazon.co.uk", "ikea.de", "ikea.com", "shein.com", "temu.com", "otto.de", "ebay.de", "ebay.com", "etsy.com", "wayfair.de", "home24.de"]);
+const allowedHosts = new Set(["amazon.de", "amazon.com", "amazon.co.uk", "amzn.to", "amzn.eu", "ikea.de", "ikea.com", "shein.com", "temu.com", "otto.de", "ebay.de", "ebay.com", "etsy.com", "wayfair.de", "home24.de"]);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 async function checkOne(product: { id: number; name: string; link: string }) {
