@@ -250,6 +250,7 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
 .hero-intro p:last-child:after{content:"✦";display:block;margin-top:14px;color:var(--gold);font-size:13px;letter-spacing:.4em}
 .hero-intro-bottom{max-width:none;margin:88px 0 0;padding:21px 24px 18px;border-radius:18px}.hero-intro-bottom h2{font-size:25px;margin-bottom:7px}.hero-intro-bottom p{font-size:13px}.hero-intro-bottom p:last-child:after{margin-top:7px;font-size:11px}
 .logo{height:116px}.logo img{width:116px;height:116px}.collection-heading{margin:18px 0 14px}.collection-heading h2{font-size:24px}.collection-ornament{margin-top:8px}
+.brand-lockup{display:flex;align-items:center;justify-content:center;gap:22px}.brand-copy{text-align:left}.brand-copy h1{margin:0}.brand-copy p{margin:7px 0 0}.brand-lockup .logo{height:146px}.brand-lockup .logo img{width:146px;height:146px}
 @media(max-width:700px){
   html,body{overflow-x:hidden}
   header{padding:56px 16px 22px}
@@ -267,6 +268,7 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
   .admin-inner{padding:0 14px}.admin-head{align-items:flex-start;flex-direction:column}.admin-head h2{font-size:25px}.admin-card{padding:15px}.category-add{flex-direction:column}.category-add .admin-btn{width:100%;min-height:42px}.admin-actions{flex-wrap:wrap}.admin-actions .admin-btn{min-height:42px;flex:1}
   .hero-intro-bottom{margin-top:55px;padding:19px 16px 16px}.hero-intro-bottom h2{font-size:22px}.hero-intro-bottom p{font-size:12px}
   .logo{height:94px}.logo img{width:94px;height:94px}.collection-heading{margin:15px 0 12px}.collection-heading h2{font-size:21px}
+  .brand-lockup{gap:14px}.brand-lockup .logo{height:102px}.brand-lockup .logo img{width:102px;height:102px}.brand-copy h1{font-size:27px}.brand-copy p{font-size:13px}
 }
 </style>
 </head>
@@ -275,12 +277,13 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
 
 <header>
 
-  <!-- LOGO ÜBER FINDORAHOME -->
-  <a class="logo-link" href="./" aria-label="Zur Startseite"><div class="logo"><img src="findora-logo.png" alt="FindoraHome Logo"></div></a>
-
-  <h1>Findora Home</h1>
-
-  <p>Finde Lieblingsstücke für drinnen &amp; draußen.</p>
+  <div class="brand-lockup">
+    <a class="logo-link" href="./" aria-label="Zur Startseite"><div class="logo"><img src="findora-logo.png" alt="FindoraHome Logo"></div></a>
+    <div class="brand-copy">
+      <h1>Findora Home</h1>
+      <p>Finde Lieblingsstücke für drinnen &amp; draußen.</p>
+    </div>
+  </div>
 
   <button id="admin-login-button" class="admin-login" type="button">Admin Login</button>
   <button id="admin-logout-button" class="admin-login" type="button" hidden>Abmelden</button>
