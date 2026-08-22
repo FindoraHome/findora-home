@@ -61,16 +61,6 @@ Deno.serve(async (request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) },
     });
   }
-  const { error: rateError } = await service.from("contact_rate_limits").upsert({
-    ip_hash: ipHash,
-    window_started_at: windowActive ? new Date(windowStarted).toISOString() : new Date(now).toISOString(),
-    sent_count: previousCount + 1,
-  });
-  if (rateError) {
-    console.error("Kontakt-Ratenlimit konnte nicht gespeichert werden:", rateError);
-    return json({ error: "Anfrage konnte nicht verarbeitet werden." }, 503);
-  }
-
   const transport = nodemailer.createTransport({
     host: Deno.env.get("SMTP_HOSTNAME") || "smtp.web.de",
     port: Number(Deno.env.get("SMTP_PORT") || "587"),
@@ -86,6 +76,12 @@ Deno.serve(async (request) => {
       subject: `[FindoraHome] ${topic.replace(/[\r\n]+/g, " ")}`,
       text: `Neue Nachricht über FindoraHome\n\nThema: ${topic}\nName: ${name}\nE-Mail: ${email || "Nicht angegeben"}\n\n${message}`,
     });
+    const { error: rateError } = await service.from("contact_rate_limits").upsert({
+      ip_hash: ipHash,
+      window_started_at: windowActive ? new Date(windowStarted).toISOString() : new Date(now).toISOString(),
+      sent_count: previousCount + 1,
+    });
+    if (rateError) console.error("Kontakt-Ratenlimit konnte nicht gespeichert werden:", rateError);
     return json({ sent: true });
   } catch (error) {
     console.error("Kontaktmail konnte nicht gesendet werden:", error);
