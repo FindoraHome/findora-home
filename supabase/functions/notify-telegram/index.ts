@@ -1,0 +1,75 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+async function hashIp(ip: string) {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
+  return Array.from(new Uint8Array(bytes)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function isAdmin(request: Request) {
+  const authorization = request.headers.get("Authorization");
+  if (!authorization?.startsWith("Bearer ")) return false;
+  const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authorization } } });
+  const { data: userData } = await supabase.auth.getUser(authorization.replace("Bearer ", ""));
+  if (!userData.user) return false;
+  const { data: admin } = await supabase.rpc("is_admin");
+  return admin === true;
+}
+
+async function sendTelegram(text: string) {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+  const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
+  if (!token || !chatId) return { ok: false, status: 503, error: "TELEGRAM_BOT_TOKEN oder TELEGRAM_CHAT_ID fehlt." };
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.ok !== true) return { ok: false, status: 502, error: "Telegram konnte die Nachricht nicht senden." };
+  return { ok: true, status: 200 };
+}
+
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (request.method !== "POST") return json({ error: "Nur POST wird unterstützt." }, 405);
+  let input: Record<string, unknown>;
+  try { input = await request.json(); } catch { return json({ error: "Ungültige Anfrage." }, 400); }
+  const type = String(input.type || "");
+
+  if (type === "test") {
+    if (!(await isAdmin(request))) return json({ error: "Nur Admins dürfen testen." }, 403);
+    const result = await sendTelegram("✅ Findora Home\n\nTelegram-Benachrichtigungen funktionieren.");
+    return json(result, result.status);
+  }
+  if (type !== "visit" && type !== "click") return json({ error: "Unbekannter Benachrichtigungstyp." }, 400);
+
+  const serviceUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!serviceUrl || !serviceKey) return json({ error: "Supabase-Service ist nicht konfiguriert." }, 503);
+  const service = createClient(serviceUrl, serviceKey);
+  const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+  const ipHash = await hashIp(clientIp);
+  const windowStart = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { count } = await service.from("telegram_notification_log").select("id", { count: "exact", head: true }).eq("ip_hash", ipHash).gte("sent_at", windowStart);
+  if (Number(count || 0) >= 20) return json({ throttled: true }, 429);
+
+  let text = "🔔 Findora Home\n\n👀 Neue Seitenansicht";
+  if (type === "click") {
+    const productId = Number(input.product_id);
+    if (!Number.isSafeInteger(productId) || productId <= 0) return json({ error: "Ungültiges Produkt." }, 400);
+    const { data: product } = await service.from("products").select("name,active").eq("id", productId).maybeSingle();
+    if (!product?.active) return json({ error: "Produkt nicht verfügbar." }, 400);
+    text = `🔔 Findora Home\n\n🛒 Produkt angeklickt\n📦 ${String(product.name || "Unbekannt").slice(0, 160)}`;
+  }
+  const time = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
+  const result = await sendTelegram(`${text}\n🕒 ${time}`);
+  if (result.ok) await service.from("telegram_notification_log").insert({ ip_hash: ipHash, event_type: type });
+  return json(result, result.status);
+});
