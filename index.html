@@ -272,6 +272,11 @@ header{position:relative}
 @media(max-width:800px){.header-inner{grid-template-columns:auto 1fr;gap:12px}.header-search{grid-column:1/-1;grid-row:2}.header-nav{grid-column:2;grid-row:1;gap:2px}.header-nav .category-menu-button,.header-nav .favorites-toggle{padding:8px 6px;font-size:11px}.header-nav .header-ornament{display:none}.header-inner .logo{height:70px}.header-inner .logo img{width:70px;height:70px}.header-nav .admin-login{padding:8px 9px;font-size:11px}}
 @media(max-width:480px){.header-nav .category-menu-button,.header-nav .favorites-toggle{font-size:0}.header-nav .category-menu-button:after{content:"☰";font-size:20px}.header-nav .favorites-toggle:before{content:"♡";font-size:23px}.header-nav .favorites-toggle span{font-size:11px;margin-left:3px}.header-nav .admin-login{font-size:10px;padding:8px 7px}}
 
+/* Das Kategorien-Fenster öffnet direkt unter dem Button im Kopfbereich. */
+.category-nav-wrap{position:relative}
+.category-nav-wrap #categories{position:absolute;z-index:50;top:calc(100% + 14px);right:0;width:min(760px,calc(100vw - 32px));max-height:270px;margin:0;overflow:auto}
+@media(max-width:480px){.category-nav-wrap #categories{right:-8px;width:calc(100vw - 24px)}}
+
 /* Boutique-Interior-Design */
 :root{--ink:#302b27;--muted:#83786e;--cream:#f7f3ee;--sand:#e9ded2;--gold:#a98c70}
 body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--cream);color:var(--ink)}
@@ -343,7 +348,7 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
       <input id="search" type="search" placeholder="Wonach suchst du?" aria-label="Produkte suchen">
     </div>
     <nav class="header-nav" aria-label="Hauptnavigation">
-      <button id="category-menu-button" class="category-menu-button" type="button" aria-expanded="false"><span class="hamburger">☰</span><span>Kategorien</span></button>
+      <div class="category-nav-wrap"><button id="category-menu-button" class="category-menu-button" type="button" aria-expanded="false"><span class="hamburger">☰</span><span>Kategorien</span></button><div id="categories" class="category-drawer"></div></div>
       <button id="favorites-toggle" class="favorites-toggle" type="button" onclick="window.__findoraFavoritesToggle && window.__findoraFavoritesToggle()">♡ Favoriten <span id="favorites-count">0</span></button>
       <span class="header-ornament" aria-hidden="true">✦</span>
       <button id="admin-login-button" class="admin-login" type="button">Admin Login</button>
@@ -400,7 +405,6 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
 <div class="results-toolbar"><span id="results-count">Produkte werden geladen...</span><div class="public-filters"><select id="partner-filter" class="sort-select" aria-label="Nach Partnerseite filtern"><option value="">Alle Partnerseiten</option></select><select id="sort-select" class="sort-select" aria-label="Produkte sortieren"><option value="newest">Neueste zuerst</option><option value="az">Name A–Z</option><option value="za">Name Z–A</option></select></div></div>
 
 <div class="category-menu-row"><span id="category-current" class="category-current">Alle</span></div>
-<div id="categories" class="category-drawer"></div>
 
 <div id="products">
   <div class="message">Produkte werden geladen...</div>
