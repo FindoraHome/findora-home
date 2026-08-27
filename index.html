@@ -348,6 +348,11 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
   .header-search #search{height:44px}
 }
 @media(max-width:700px){.category-nav-wrap #categories{position:fixed;left:12px;right:12px;top:91px;width:auto;max-height:230px}}
+
+/* Bildbereich aus der Vorlage direkt unter dem Kopf. */
+.hero-banner{position:relative;isolation:isolate;overflow:hidden;max-width:1280px;min-height:250px;margin:0 auto 30px;border:1px solid #eadfd5;border-radius:20px;background-image:linear-gradient(90deg,rgba(247,243,238,.98) 0%,rgba(247,243,238,.9) 42%,rgba(247,243,238,.12) 72%),url('hero-banner.png');background-position:center;background-size:cover;box-shadow:0 12px 28px rgba(65,45,30,.08)}
+.hero-banner-copy{position:relative;z-index:1;width:min(49%,560px);padding:36px 42px 34px}.hero-banner-kicker{margin:0 0 9px;color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.hero-banner h1{margin:0 0 10px;font:400 clamp(28px,3.4vw,48px)/1.08 Georgia,"Times New Roman",serif;color:var(--ink)}.hero-banner-copy>p:not(.hero-banner-kicker){margin:0 0 18px;color:#766c64;font-size:14px}.hero-banner-cta{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;background:#4e5b2d;color:#fff;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 5px 14px rgba(56,67,34,.18)}.hero-banner-cta:hover{background:#3d4723}
+@media(max-width:700px){.hero-banner{min-height:260px;margin-bottom:24px;background-position:62% center}.hero-banner-copy{width:auto;padding:30px 24px 28px;background:linear-gradient(90deg,rgba(247,243,238,.97),rgba(247,243,238,.72) 78%,rgba(247,243,238,0))}.hero-banner h1{font-size:32px}.hero-banner-copy>p:not(.hero-banner-kicker){font-size:13px}}
 </style>
 </head>
 
@@ -409,6 +414,15 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
 </section>
 
 <main>
+
+<section class="hero-banner" aria-labelledby="hero-banner-title">
+  <div class="hero-banner-copy">
+    <p class="hero-banner-kicker">FindoraHome · Wohninspiration</p>
+    <h1 id="hero-banner-title">Schöne Dinge<br>für drinnen &amp; draußen</h1>
+    <p>Ausgewählte Ideen für jeden Raum.</p>
+    <a class="hero-banner-cta" href="#products">Jetzt ansehen <span aria-hidden="true">→</span></a>
+  </div>
+</section>
 
 <div class="collection-heading" aria-label="Produktauswahl">
   <p class="collection-kicker">Mit Liebe ausgewählt</p>
