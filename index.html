@@ -354,6 +354,17 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
 .hero-banner-copy{position:relative;z-index:1;width:min(49%,560px);padding:36px 42px 34px}.hero-banner-kicker{margin:0 0 9px;color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.hero-banner h1{margin:0 0 10px;font:400 clamp(28px,3.4vw,48px)/1.08 Georgia,"Times New Roman",serif;color:var(--ink)}.hero-banner-copy>p:not(.hero-banner-kicker){margin:0 0 18px;color:#766c64;font-size:14px}.hero-banner-cta{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;background:#4e5b2d;color:#fff;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 5px 14px rgba(56,67,34,.18)}.hero-banner-cta:hover{background:#3d4723}
 @media(max-width:700px){.hero-banner{min-height:260px;margin-bottom:24px;background-position:62% center}.hero-banner-copy{width:auto;padding:30px 24px 28px;background:linear-gradient(90deg,rgba(247,243,238,.97),rgba(247,243,238,.72) 78%,rgba(247,243,238,0))}.hero-banner h1{font-size:32px}.hero-banner-copy>p:not(.hero-banner-kicker){font-size:13px}}
 </style>
+<style>
+  /* Compact admin lists: many categories stay inside a small, scrollable grid. */
+  #admin-category-list,
+  #admin-partner-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; max-height:300px; overflow-y:auto; align-content:start; padding:4px; margin-top:8px; }
+  #admin-partner-list { max-height:180px; }
+  #admin-category-list .category-pill,
+  #admin-partner-list .category-pill { min-width:0; width:100%; padding:4px 6px 4px 8px; gap:4px; font-size:10px; }
+  #admin-category-list .category-pill > span:first-child,
+  #admin-partner-list .category-pill > span:first-child { min-width:0; overflow-wrap:anywhere; }
+  @media(max-width:500px) { #admin-category-list, #admin-partner-list { grid-template-columns:1fr; max-height:260px; } }
+</style>
 </head>
 
 <body>
@@ -875,6 +886,8 @@ loadProducts();
   window.__findoraRefreshStats = async () => { if (!admin.isAdmin) return; const button = el("refresh-stats"); if (button) { button.disabled = true; button.textContent = "↻ Wird aktualisiert…"; } try { await loadVisitorStats(); await loadLikeStatsAdmin(); await loadSearchStatsAdmin(); notice("Statistik aktualisiert.", "success"); } catch (error) { notice("Statistik konnte nicht aktualisiert werden: " + (error.message || "Unbekannter Fehler"), "error"); } finally { if (button) { button.disabled = false; button.textContent = "↻ Statistik aktualisieren"; } } };
   const refreshStatsButton = document.createElement("button"); refreshStatsButton.id = "refresh-stats"; refreshStatsButton.className = "admin-btn stats-download"; refreshStatsButton.type = "button"; refreshStatsButton.textContent = "↻ Statistik aktualisieren"; refreshStatsButton.addEventListener("click", () => window.__findoraRefreshStats()); el("admin-stats").appendChild(refreshStatsButton);
   setInterval(() => { if (admin.isAdmin && document.visibilityState === "visible") void loadVisitorStats().catch(() => {}); }, 30000);
+  const ownProductsBox = el("admin-own-products"), productsAdminBox = el("admin-products");
+  if (ownProductsBox && productsAdminBox) { const ownProductsCard = productsAdminBox.closest(".admin-card"); if (ownProductsCard) { const heading = document.createElement("h3"); heading.textContent = "Eigene Findora-Produkte"; heading.className = "admin-own-products-heading"; ownProductsBox.remove(); ownProductsCard.append(heading, ownProductsBox); } }
 })();
 </script>
 
