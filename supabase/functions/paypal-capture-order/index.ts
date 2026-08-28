@@ -18,7 +18,7 @@ Deno.serve(async (request) => {
   const orderId = String(input.order_id || "").trim();
   if (!orderId || !/^[A-Za-z0-9_-]{5,80}$/.test(orderId)) return json({ error: "Ungültige PayPal-Bestellung." }, 400);
   const service = db();
-  const { data: transaction, error: transactionError } = await service.from("paypal_transactions").select("id,status").eq("paypal_order_id", orderId).maybeSingle();
+  const { data: transaction, error: transactionError } = await service.from("paypal_transactions").select("id,status,own_products(file_path,file_name)").eq("paypal_order_id", orderId).maybeSingle();
   if (transactionError || !transaction) return json({ error: "Bestellung nicht gefunden." }, 404);
   if (transaction.status === "COMPLETED") return json({ completed: true });
   try {
@@ -29,6 +29,12 @@ Deno.serve(async (request) => {
     const payerEmail = data.payer?.email_address || null;
     await service.from("paypal_transactions").update({ status: completed ? "COMPLETED" : "FAILED", payer_email: payerEmail, captured_at: completed ? new Date().toISOString() : null }).eq("id", transaction.id);
     if (!completed) return json({ error: "PayPal konnte die Zahlung nicht abschließen." }, 502);
-    return json({ completed: true, capture_id: capture?.id || null });
+    let downloadUrl = null;
+    const filePath = transaction.own_products?.file_path;
+    if (completed && filePath) {
+      const signed = await service.storage.from("product-files").createSignedUrl(filePath, 3600);
+      if (!signed.error) downloadUrl = signed.data?.signedUrl || null;
+    }
+    return json({ completed: true, capture_id: capture?.id || null, download_url: downloadUrl, file_name: transaction.own_products?.file_name || null });
   } catch (error) { await service.from("paypal_transactions").update({ status: "FAILED" }).eq("id", transaction.id); return json({ error: error instanceof Error ? error.message : "PayPal ist nicht verfügbar." }, 503); }
 });
