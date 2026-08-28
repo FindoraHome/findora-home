@@ -86,7 +86,7 @@
         });
       }
       search.addEventListener("input", render);
-      const adminLogin = document.getElementById("products-admin-login"), adminLogout = document.getElementById("products-admin-logout");
+      const adminLogin = document.getElementById("products-admin-login"), adminLogout = document.getElementById("products-admin-logout"), adminManage = document.getElementById("own-admin-manage"), manageForm = document.getElementById("own-manage-form"), manageList = document.getElementById("own-manage-list"), manageStatus = document.getElementById("own-manage-status");
       let adminOwnProducts = [], editingOwnId = null, currentOwnImage = "";
       const publicImage = path => SUPABASE_URL + "/storage/v1/object/public/product-images/" + encodeURIComponent(path).replace(/%2F/g, "/");
       const storagePath = url => { const marker = "/storage/v1/object/public/product-images/"; return url && url.includes(marker) ? decodeURIComponent(url.split(marker)[1]) : null; };
