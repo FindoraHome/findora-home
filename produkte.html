@@ -47,7 +47,7 @@
         if(paypalLoad) return paypalLoad;
         paypalLoad = fetch(SUPABASE_URL + "/functions/v1/paypal-config").then(response => response.ok ? response.json() : null).then(config => {
           if(!config?.configured) return false;
-          return new Promise(resolve => { const script = document.createElement("script"); script.src = "https://www.paypal.com/sdk/js?client-id=" + encodeURIComponent(config.clientId) + "&currency=EUR&intent=capture"; script.onload = () => resolve(true); script.onerror = () => resolve(false); document.head.appendChild(script); });
+          return new Promise(resolve => { const script = document.createElement("script"); const locale = "de_DE"; const buyerCountry = config.environment === "sandbox" ? "&buyer-country=DE" : ""; script.src = "https://www.paypal.com/sdk/js?client-id=" + encodeURIComponent(config.clientId) + "&currency=EUR&intent=capture&locale=" + locale + buyerCountry; script.onload = () => resolve(true); script.onerror = () => resolve(false); document.head.appendChild(script); });
         }).catch(() => false);
         return paypalLoad;
       }

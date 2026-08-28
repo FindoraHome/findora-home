@@ -24,7 +24,7 @@ Deno.serve(async (request) => {
   if (!Number.isFinite(amount) || amount <= 0) return json({ error: "Für dieses Produkt ist noch kein gültiger Preis hinterlegt." }, 400);
   if (!product.file_path) return json({ error: "Für dieses Produkt ist noch keine Download-Datei hinterlegt." }, 400);
   try {
-    const response = await fetch(`${base()}/v2/checkout/orders`, { method: "POST", headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json", "PayPal-Request-Id": crypto.randomUUID() }, body: JSON.stringify({ intent: "CAPTURE", purchase_units: [{ custom_id: String(product.id), description: String(product.name || "Findora-Produkt").slice(0, 127), amount: { currency_code: "EUR", value: amount.toFixed(2) } }] }) });
+    const response = await fetch(`${base()}/v2/checkout/orders`, { method: "POST", headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json", "PayPal-Request-Id": crypto.randomUUID() }, body: JSON.stringify({ intent: "CAPTURE", application_context: { brand_name: "Findora Home", locale: "de-DE", shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW" }, purchase_units: [{ custom_id: String(product.id), description: String(product.name || "Findora-Produkt").slice(0, 127), amount: { currency_code: "EUR", value: amount.toFixed(2) } }] }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.id) return json({ error: "PayPal konnte die Bestellung nicht erstellen." }, 502);
     const { error: insertError } = await service.from("paypal_transactions").insert({ own_product_id: product.id, paypal_order_id: data.id, status: "CREATED", amount, currency: "EUR" });
