@@ -31,4 +31,3 @@ create policy "Admins can manage own products"
 grant select on public.own_products to anon, authenticated;
 grant insert, update, delete on public.own_products to authenticated;
 grant usage, select on sequence public.own_products_id_seq to authenticated;
-
