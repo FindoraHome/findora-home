@@ -18,10 +18,11 @@ Deno.serve(async (request) => {
   const productId = Number(input.product_id);
   if (!Number.isSafeInteger(productId) || productId <= 0) return json({ error: "Ungültiges Produkt." }, 400);
   const service = db();
-  const { data: product, error: productError } = await service.from("own_products").select("id,name,price,active").eq("id", productId).maybeSingle();
+  const { data: product, error: productError } = await service.from("own_products").select("id,name,price,active,file_path").eq("id", productId).maybeSingle();
   if (productError || !product || product.active !== true) return json({ error: "Produkt nicht verfügbar." }, 404);
   const amount = Number(product.price);
   if (!Number.isFinite(amount) || amount <= 0) return json({ error: "Für dieses Produkt ist noch kein gültiger Preis hinterlegt." }, 400);
+  if (!product.file_path) return json({ error: "Für dieses Produkt ist noch keine Download-Datei hinterlegt." }, 400);
   try {
     const response = await fetch(`${base()}/v2/checkout/orders`, { method: "POST", headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json", "PayPal-Request-Id": crypto.randomUUID() }, body: JSON.stringify({ intent: "CAPTURE", purchase_units: [{ custom_id: String(product.id), description: String(product.name || "Findora-Produkt").slice(0, 127), amount: { currency_code: "EUR", value: amount.toFixed(2) } }] }) });
     const data = await response.json().catch(() => ({}));
