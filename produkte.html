@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Findora-Produkte · Findora Home</title>
   <meta name="description" content="Handgemachte und selbst hergestellte Produkte von Findora Home.">
+  <link rel="canonical" href="https://findorahome.github.io/findora-home/produkte.html">
+  <meta name="robots" content="index,follow">
+  <meta property="og:title" content="Findora-Produkte · Findora Home">
+  <meta property="og:description" content="Handgemachte und selbst hergestellte Produkte von Findora Home.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://findorahome.github.io/findora-home/produkte.html">
+  <meta property="og:image" content="findora-logo.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Findora-Produkte · Findora Home">
+  <meta name="twitter:description" content="Handgemachte und selbst hergestellte Produkte von Findora Home.">
+  <script id="own-products-schema" type="application/ld+json">{"@context":"https://schema.org","@type":"ItemList","name":"Findora-Produkte","itemListElement":[]}</script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root{--ink:#302b27;--muted:#83786e;--cream:#f7f3ee;--sand:#e9ded2;--gold:#a98c70;--olive:#4e5b2d}
@@ -18,12 +29,14 @@
     footer{border-top:1px solid #e1d2c4;background:#eee4da}.footer-inner{max-width:1280px;margin:0 auto;padding:26px 24px;display:flex;justify-content:space-between;gap:18px;align-items:center}.footer-inner a{color:var(--ink);text-decoration:none}.footer-inner a:hover{text-decoration:underline}
     @media(max-width:800px){.header-inner{padding:10px 16px;gap:13px;flex-wrap:wrap}.logo{width:72px;height:72px}.header-title strong{font-size:20px}.header-title span{font-size:10px}.header-nav{margin-left:auto}.header-nav a,.admin-link{padding:8px 7px;font-size:11px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.card-image{height:220px;padding:13px}main{padding:38px 16px 54px}}
     @media(max-width:560px){.header-title{order:2}.header-nav{order:3;width:100%;justify-content:space-between;border-top:1px solid #eee2d8;padding-top:8px}.header-nav a{flex:1;text-align:center}.toolbar{display:block}.toolbar strong{display:block;margin-bottom:12px}.toolbar input{width:100%}.grid{grid-template-columns:1fr}.card-image{height:250px}.footer-inner{display:block;padding:22px 16px}.footer-inner p{margin-top:8px}.manage-form{grid-template-columns:1fr}.manage-field.full{grid-column:auto}.manage-actions.full{grid-column:auto}.manage-row{grid-template-columns:42px 1fr}.manage-row img{width:42px;height:42px}.manage-row .manage-actions{grid-column:1/-1;justify-content:flex-start}}
+    .purchase-success{display:grid;gap:9px;padding:14px;border:1px solid #b8d7ba;border-radius:12px;background:#f1fbf2;color:#286b33}.purchase-success strong{font-size:13px}.purchase-success p{margin:0;color:#47734b;font-size:12px;line-height:1.45}.purchase-success .buy{margin-top:2px}
+    @media(max-width:560px){.buy,.manage-btn{min-height:44px}.toolbar input{min-height:46px}.card-body{padding:18px}}
   </style>
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <a class="logo-link" href="index.html" aria-label="Zur Findora-Home-Startseite"><img class="logo" src="findora-logo.png" alt="Findora Home"></a>
+      <a class="logo-link" href="index.html" aria-label="Zur Findora-Home-Startseite"><img class="logo" src="findora-logo.png" alt="Findora Home" width="92" height="92" decoding="async"></a>
       <div class="header-title"><strong>Findora Home</strong><span>Eigene Produkte</span></div>
       <nav class="header-nav" aria-label="Hauptnavigation"><a href="index.html">Startseite</a><a href="index.html#products">Kategorien</a><a class="current" href="produkte.html" aria-current="page">Findora-Produkte</a><a id="products-admin-login" class="admin-link" href="index.html#admin-panel">Adminbereich</a><button id="products-admin-logout" class="admin-link" type="button" hidden>Abmelden</button></nav>
     </div>
@@ -57,7 +70,7 @@
           window.paypal.Buttons({
             style:{ layout:"vertical", shape:"pill", label:"paypal", height:42 },
             createOrder: async () => { const result = await client.functions.invoke("paypal-create-order", { body:{ product_id: product.id } }); if(result.error || !result.data?.id) throw new Error(result.error?.message || result.data?.error || "Bestellung konnte nicht erstellt werden."); return result.data.id; },
-            onApprove: async data => { const result = await client.functions.invoke("paypal-capture-order", { body:{ order_id:data.orderID } }); if(result.error || !result.data?.completed) throw new Error(result.error?.message || result.data?.error || "Zahlung konnte nicht abgeschlossen werden."); container.innerHTML = '<div class="paypal-status" style="color:#286b33;font-weight:700">Zahlung erfolgreich abgeschlossen. Danke!</div>'; if(result.data.download_url){ const download = document.createElement("a"); download.className = "buy"; download.href = result.data.download_url; download.target = "_blank"; download.rel = "noopener"; download.download = result.data.file_name || "findora-download"; download.textContent = "Download öffnen ↓"; container.appendChild(download); } else { const note = document.createElement("div"); note.className = "paypal-status"; note.textContent = "Für dieses Produkt ist keine Download-Datei hinterlegt."; container.appendChild(note); } },
+            onApprove: async data => { const result = await client.functions.invoke("paypal-capture-order", { body:{ order_id:data.orderID } }); if(result.error || !result.data?.completed) throw new Error(result.error?.message || result.data?.error || "Zahlung konnte nicht abgeschlossen werden."); container.innerHTML = ""; const success = document.createElement("div"); success.className = "purchase-success"; const heading = document.createElement("strong"); heading.textContent = "Zahlung erfolgreich – danke für deine Bestellung!"; const confirmation = document.createElement("span"); confirmation.textContent = "Deine Bestellung wurde bestätigt. Der Download ist hier verfügbar:"; success.append(heading, confirmation); if(result.data.download_url){ const download = document.createElement("a"); download.className = "buy"; download.href = result.data.download_url; download.target = "_blank"; download.rel = "noopener"; download.download = result.data.file_name || "findora-download"; download.textContent = "Download öffnen ↓"; success.appendChild(download); } else { const note = document.createElement("span"); note.textContent = "Für dieses Produkt ist aktuell keine Download-Datei hinterlegt."; success.appendChild(note); } container.appendChild(success); },
             onCancel: () => { const status = container.querySelector(".paypal-status"); if(status) status.textContent = "Zahlung abgebrochen."; },
             onError: error => { console.error(error); const status = container.querySelector(".paypal-status"); if(status) status.textContent = "PayPal ist gerade nicht verfügbar."; }
           }).render(container);
@@ -66,15 +79,16 @@
         if(product.purchase_url && (String(product.purchase_url).startsWith("https://") || String(product.purchase_url).startsWith("http://"))){ const buy = document.createElement("a"); buy.className = "buy"; buy.href = product.purchase_url; buy.target = "_blank"; buy.rel = "noopener noreferrer"; buy.textContent = "Mit PayPal kaufen →"; container.appendChild(buy); }
         else { const status = document.createElement("div"); status.className = "paypal-status"; status.textContent = "PayPal-Zahlung ist noch nicht eingerichtet."; container.appendChild(status); }
       }
+      function updateProductSchema(items){ const schema = document.getElementById("own-products-schema"); if(!schema) return; schema.textContent = JSON.stringify({ "@context":"https://schema.org", "@type":"ItemList", name:"Findora-Produkte", itemListElement:(items || []).map((item,index) => { const url = "https://findorahome.github.io/findora-home/produkte.html#produkt-" + item.id; const product = { "@type":"Product", name:item.name || "Findora-Produkt", url, image:item.image_url || undefined, description:item.description || undefined }; if(item.price != null && Number(item.price) > 0) product.offers = { "@type":"Offer", price:Number(item.price).toFixed(2), priceCurrency:"EUR", availability:"https://schema.org/InStock", url }; return { "@type":"ListItem", position:index + 1, item:product }; }) }); }
       function render(){
         const term = search.value.trim().toLowerCase();
         const items = products.filter(item => [item.name,item.description].filter(Boolean).join(" ").toLowerCase().includes(term));
         box.innerHTML = "";
-        if(!items.length){ box.innerHTML = '<div class="empty">Noch kein passendes eigenes Produkt gefunden.</div>'; return; }
+        updateProductSchema(items); if(!items.length){ box.innerHTML = '<div class="empty">Noch kein passendes eigenes Produkt gefunden.</div>'; return; }
         items.forEach(item => {
-          const card = document.createElement("article"); card.className = "card";
+          const card = document.createElement("article"); card.className = "card"; card.id = "produkt-" + item.id;
           const image = document.createElement("div"); image.className = "card-image";
-          if(item.image_url){ const img = document.createElement("img"); img.src = item.image_url; img.alt = item.name || "Findora-Produkt"; img.loading = "lazy"; image.appendChild(img); }
+          if(item.image_url){ const img = document.createElement("img"); img.src = item.image_url; img.alt = item.name || "Findora-Produkt"; img.loading = "lazy"; img.decoding = "async"; image.appendChild(img); }
           else image.innerHTML = '<span class="empty" style="display:grid;height:100%;place-items:center;border:0;background:transparent;padding:0">Bild folgt</span>';
           const body = document.createElement("div"); body.className = "card-body";
           const title = document.createElement("h2"); title.textContent = item.name || "Findora-Produkt";
