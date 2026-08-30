@@ -3,6 +3,17 @@ const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const db = () => createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 const base = () => Deno.env.get("PAYPAL_ENVIRONMENT") === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+async function notifyPurchase(productName: string, amount: unknown, orderId: string) {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+  const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
+  if (!token || !chatId) return;
+  const price = Number(amount);
+  const amountText = Number.isFinite(price) ? price.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "Betrag unbekannt";
+  const time = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chatId, text: `🔔 Findora Home\n\n🛒 Neue Bestellung\n📦 ${String(productName || "Eigenes Produkt").slice(0, 160)}\n💶 ${amountText}\n🧾 PayPal: ${orderId}\n🕒 ${time}`, disable_web_page_preview: true }) });
+  } catch (error) { console.error("Telegram-Bestellbenachrichtigung fehlgeschlagen:", error); }
+}
 async function token() {
   const id = Deno.env.get("PAYPAL_CLIENT_ID"), secret = Deno.env.get("PAYPAL_CLIENT_SECRET");
   if (!id || !secret) throw new Error("PayPal ist noch nicht eingerichtet.");
@@ -43,6 +54,7 @@ Deno.serve(async (request) => {
       const signed = await service.storage.from("product-files").createSignedUrl(filePath, 3600);
       if (!signed.error) downloadUrl = signed.data?.signedUrl || null;
     }
+    if (completed) await notifyPurchase(transaction.own_products?.name || "Eigenes Produkt", transaction.amount, orderId);
     return json({ completed: true, capture_id: capture?.id || null, download_url: downloadUrl, file_name: transaction.own_products?.file_name || null, product_name: transaction.own_products?.name || null, amount: transaction.amount || null });
   } catch (error) { await service.from("paypal_transactions").update({ status: "FAILED" }).eq("id", transaction.id); return json({ error: error instanceof Error ? error.message : "PayPal ist nicht verfügbar." }, 503); }
 });

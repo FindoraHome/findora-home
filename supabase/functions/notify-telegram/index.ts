@@ -6,6 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const clean = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
 
 async function hashIp(ip: string) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
@@ -48,7 +49,7 @@ Deno.serve(async (request) => {
     const result = await sendTelegram("✅ Findora Home\n\nTelegram-Benachrichtigungen funktionieren.");
     return json(result, result.status);
   }
-  if (type !== "visit" && type !== "click") return json({ error: "Unbekannter Benachrichtigungstyp." }, 400);
+  if (type !== "visit" && type !== "click" && type !== "contact") return json({ error: "Unbekannter Benachrichtigungstyp." }, 400);
 
   const serviceUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -58,7 +59,8 @@ Deno.serve(async (request) => {
   const ipHash = await hashIp(clientIp);
   const windowStart = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { count } = await service.from("telegram_notification_log").select("id", { count: "exact", head: true }).eq("ip_hash", ipHash).gte("sent_at", windowStart);
-  if (Number(count || 0) >= 20) return json({ throttled: true }, 429);
+  const limit = type === "contact" ? 3 : 20;
+  if (Number(count || 0) >= limit) return json({ throttled: true }, 429);
 
   let text = "🔔 Findora Home\n\n👀 Neue Seitenansicht";
   if (type === "click") {
@@ -67,6 +69,14 @@ Deno.serve(async (request) => {
     const { data: product } = await service.from("products").select("name,active").eq("id", productId).maybeSingle();
     if (!product?.active) return json({ error: "Produkt nicht verfügbar." }, 400);
     text = `🔔 Findora Home\n\n🛒 Produkt angeklickt\n📦 ${String(product.name || "Unbekannt").slice(0, 160)}`;
+  } else if (type === "contact") {
+    const name = clean(input.name, 100) || "Nicht angegeben";
+    const email = clean(input.email, 200) || "Nicht angegeben";
+    const topic = clean(input.topic, 140);
+    const message = clean(input.message, 3000);
+    if (!topic || !message) return json({ error: "Thema und Nachricht sind erforderlich." }, 400);
+    if (email !== "Nicht angegeben" && !/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Ungültige E-Mail-Adresse." }, 400);
+    text = `🔔 Findora Home\n\n✉️ Neue Nachricht\n📌 Thema: ${topic}\n👤 Name: ${name}\n📧 E-Mail: ${email}\n\n${message}`;
   }
   const time = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
   const result = await sendTelegram(`${text}\n🕒 ${time}`);
