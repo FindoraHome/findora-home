@@ -17,14 +17,16 @@ Deno.serve(async (request) => {
   if (userError || !userData.user) return json({ error: "Anmeldung erforderlich." }, 401);
   const { data: admin, error: adminError } = await supabase.rpc("is_admin");
   if (adminError || admin !== true) return json({ error: "Nur Admins dürfen Telegram einrichten." }, 403);
-  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
-  if (!token) return json({ error: "TELEGRAM_BOT_TOKEN fehlt in den Edge-Function-Secrets." }, 503);
-  const action = String((await request.clone().json().catch(() => ({})))?.action || "");
-  if (action === "set_webhook") {
-    const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
-    const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
+  const body = await request.clone().json().catch(() => ({}));
+  const dolly = body.bot === "dolly" || body.action === "set_dolly_webhook";
+  const token = Deno.env.get(dolly ? "DOLLY_TELEGRAM_BOT_TOKEN" : "TELEGRAM_BOT_TOKEN");
+  if (!token) return json({ error: dolly ? "DOLLY_TELEGRAM_BOT_TOKEN fehlt in den Edge-Function-Secrets." : "TELEGRAM_BOT_TOKEN fehlt in den Edge-Function-Secrets." }, 503);
+  const action = String(body.action || "");
+  if (action === "set_webhook" || action === "set_dolly_webhook") {
+    const secret = dolly ? (Deno.env.get("DOLLY_TELEGRAM_WEBHOOK_SECRET") || Deno.env.get("TELEGRAM_WEBHOOK_SECRET")) : Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+    const chatId = dolly ? (Deno.env.get("DOLLY_TELEGRAM_CHAT_ID") || Deno.env.get("TELEGRAM_CHAT_ID")) : Deno.env.get("TELEGRAM_CHAT_ID");
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    if (!secret || !chatId || !supabaseUrl) return json({ error: "TELEGRAM_WEBHOOK_SECRET oder TELEGRAM_CHAT_ID fehlt." }, 503);
+    if (!secret || !chatId || !supabaseUrl) return json({ error: dolly ? "DOLLY_TELEGRAM_WEBHOOK_SECRET oder DOLLY_TELEGRAM_CHAT_ID fehlt." : "TELEGRAM_WEBHOOK_SECRET oder TELEGRAM_CHAT_ID fehlt." }, 503);
     const webhookUrl = `${supabaseUrl}/functions/v1/dolly-telegram`;
     const setResponse = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: webhookUrl, secret_token: secret, allowed_updates: ["message"] }) });
     const setResult = await setResponse.json().catch(() => ({}));

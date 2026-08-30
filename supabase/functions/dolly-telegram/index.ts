@@ -6,7 +6,7 @@ const clean = (value: unknown, max: number) => String(value ?? "").trim().slice(
 const service = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 
 async function telegram(method: string, body: Record<string, unknown>) {
-  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+  const token = Deno.env.get("DOLLY_TELEGRAM_BOT_TOKEN");
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN fehlt.");
   const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const result = await response.json().catch(() => ({}));
@@ -60,7 +60,7 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Nur POST wird unterstützt." }, 405);
   const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
-  const configuredChatId = Deno.env.get("TELEGRAM_CHAT_ID");
+  const configuredChatId = Deno.env.get("DOLLY_TELEGRAM_CHAT_ID") || Deno.env.get("TELEGRAM_CHAT_ID");
   if (!secret || !configuredChatId || request.headers.get("x-telegram-bot-api-secret-token") !== secret) return json({ error: "Ungültiger Telegram-Webhook." }, 401);
   let update: Record<string, any>;
   try { update = await request.json(); } catch { return json({ error: "Ungültige Telegram-Aktualisierung." }, 400); }

@@ -23,9 +23,9 @@ async function isAdmin(request: Request) {
   return admin === true;
 }
 
-async function sendTelegram(text: string) {
-  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
-  const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
+async function sendTelegram(text: string, bot = "main") {
+  const token = Deno.env.get(bot === "dolly" ? "DOLLY_TELEGRAM_BOT_TOKEN" : "TELEGRAM_BOT_TOKEN");
+  const chatId = Deno.env.get(bot === "dolly" ? "DOLLY_TELEGRAM_CHAT_ID" : "TELEGRAM_CHAT_ID");
   if (!token || !chatId) return { ok: false, status: 503, error: "TELEGRAM_BOT_TOKEN oder TELEGRAM_CHAT_ID fehlt." };
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -46,7 +46,8 @@ Deno.serve(async (request) => {
 
   if (type === "test") {
     if (!(await isAdmin(request))) return json({ error: "Nur Admins dürfen testen." }, 403);
-    const result = await sendTelegram("✅ Findora Home\n\nTelegram-Benachrichtigungen funktionieren.");
+    const isDolly = input.bot === "dolly";
+    const result = await sendTelegram(isDolly ? "✅ Dolly\n\nDolly-Telegram-Verbindung funktioniert." : "✅ Findora Home\n\nTelegram-Benachrichtigungen funktionieren.", isDolly ? "dolly" : "main");
     return json(result, result.status);
   }
   if (type !== "visit" && type !== "click" && type !== "contact") return json({ error: "Unbekannter Benachrichtigungstyp." }, 400);
