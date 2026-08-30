@@ -3,6 +3,9 @@ project_id = "wcpifcdwomjzmvnvgqwr"
 [functions.notify-telegram]
 verify_jwt = false
 
+[functions.dolly-telegram]
+verify_jwt = false
+
 [functions.telegram-setup]
 verify_jwt = true
 

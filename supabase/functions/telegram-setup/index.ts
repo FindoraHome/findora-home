@@ -19,6 +19,18 @@ Deno.serve(async (request) => {
   if (adminError || admin !== true) return json({ error: "Nur Admins dürfen Telegram einrichten." }, 403);
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
   if (!token) return json({ error: "TELEGRAM_BOT_TOKEN fehlt in den Edge-Function-Secrets." }, 503);
+  const action = String((await request.clone().json().catch(() => ({})))?.action || "");
+  if (action === "set_webhook") {
+    const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+    const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    if (!secret || !chatId || !supabaseUrl) return json({ error: "TELEGRAM_WEBHOOK_SECRET oder TELEGRAM_CHAT_ID fehlt." }, 503);
+    const webhookUrl = `${supabaseUrl}/functions/v1/dolly-telegram`;
+    const setResponse = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: webhookUrl, secret_token: secret, allowed_updates: ["message"] }) });
+    const setResult = await setResponse.json().catch(() => ({}));
+    if (!setResponse.ok || setResult.ok !== true) return json({ error: "Dolly-Webhook konnte nicht aktiviert werden." }, 502);
+    return json({ configured: true, webhook_url: webhookUrl });
+  }
   const response = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=20&allowed_updates=%5B%22message%22%5D`);
   const result = await response.json().catch(() => ({}));
   if (!response.ok || result.ok !== true) return json({ error: "Telegram-Token konnte nicht geprüft werden." }, 502);
