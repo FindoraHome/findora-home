@@ -69,38 +69,12 @@ async function googleTrendsHeadlines() {
 }
 
 async function trendScoutText() {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const [{ data: products, error: productError }, { data: clicks, error: clickError }] = await Promise.all([
-    service.from("products").select("id,name,category,partner,link").eq("active", true).order("id", { ascending: true }).limit(200),
-    service.from("product_clicks").select("product_id,created_at").gte("created_at", since).limit(10000),
-  ]);
-  if (productError) throw new Error("Der Produktkatalog konnte nicht geladen werden.");
-  const counts = new Map<number, number>();
-  if (!clickError) for (const click of clicks || []) counts.set(Number(click.product_id), (counts.get(Number(click.product_id)) || 0) + 1);
-  const groups = new Map<string, any[]>();
-  for (const product of products || []) { const category = String(product.category || "Weitere Produkte"); if (!groups.has(category)) groups.set(category, []); groups.get(category)!.push(product); }
-  if (!groups.size) return "📈 Trend Scout\n\nNoch keine aktiven Produkte im Findora-Katalog.";
   const googleTrends = await googleTrendsHeadlines();
-  const rows = ["📈 Findora Trend Scout · letzte 30 Tage", "Deine beworbenen Findora-Home-Produkte, sortiert nach Klicks. Dies sind keine Amazon-Verkaufszahlen.", "", "🔎 Google Trends Deutschland (Tagestrends)"];
+  const date = new Date().toLocaleDateString("de-DE");
+  const rows = ["🔎 Google Trends Deutschland", `Stand: ${date}`, "Aktuelle meistgesuchte Themen in Deutschland (keine Findora-Produktliste).", ""];
   if (googleTrends.length) googleTrends.forEach((headline, index) => rows.push(`${index + 1}. ${headline}`));
-  else rows.push("Google-Trends-Daten sind gerade nicht abrufbar.");
-  rows.push("", "📦 Beworbene Findora-Produkte");
-  const sortedGroups = [...groups.entries()].sort((a, b) => {
-    const score = (items: any[]) => items.reduce((sum, item) => sum + (counts.get(Number(item.id)) || 0), 0);
-    return score(b[1]) - score(a[1]) || a[0].localeCompare(b[0], "de");
-  });
-  for (const [category, items] of sortedGroups) {
-    const top = items.slice().sort((a, b) => (counts.get(Number(b.id)) || 0) - (counts.get(Number(a.id)) || 0) || String(a.name || "").localeCompare(String(b.name || ""), "de")).slice(0, 5);
-    rows.push(`📂 ${category}`);
-    top.forEach((item, index) => {
-      const clicksForProduct = counts.get(Number(item.id)) || 0;
-      rows.push(`${index + 1}. ${item.name || "Unbenanntes Produkt"}`);
-      rows.push(`   Marke/Modell: im Produktnamen hinterlegt · ASIN: ${amazonAsin(item.link)}`);
-      rows.push(`   Trendgrund: ${clicksForProduct} Klick${clicksForProduct === 1 ? "" : "s"} auf Findora · ${item.partner || "Partner nicht angegeben"}`);
-      if (item.link) rows.push(`   Link: ${item.link}`);
-    });
-    rows.push("");
-  }
+  else rows.push("Google-Trends-Daten sind gerade nicht abrufbar. Öffne https://trends.google.de/trends/trendingsearches/daily?geo=DE");
+  rows.push("", "Quelle: Google Trends Deutschland", "https://trends.google.de/trends/trendingsearches/daily?geo=DE");
   return rows.join("\n").slice(0, 12000);
 }
 
@@ -146,7 +120,7 @@ async function handleMessage(chatId: string, rawText: string) {
   const text = clean(rawText, 4000);
   const [command, ...rest] = text.split(/\s+/);
   const argument = rest.join(" ").trim();
-  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/produkte – aktuelle Produkte anzeigen\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – Produkte mit Klick-Trend nach Kategorien anzeigen");
+  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/produkte – aktuelle Produkte anzeigen\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – aktuelle Google-Trends in Deutschland anzeigen");
   if (command === "/produkte") return sendMessage(chatId, `📦 Aktuelle Findora-Produkte\n\n${(await catalogText()).slice(0, 3800)}`);
   if (command === "/beratung" || command === "/service") {
     if (!argument) return sendMessage(chatId, command === "/beratung" ? "Schreibe z. B.: /beratung Ich suche etwas für unterwegs bis 30 €." : "Schreibe z. B.: /service Wie funktioniert der Download nach PayPal-Zahlung?");
