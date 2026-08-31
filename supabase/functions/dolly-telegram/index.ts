@@ -78,13 +78,17 @@ async function trendScoutText() {
   return rows.join("\n").slice(0, 12000);
 }
 
+function fallbackEbook(topic: string) {
+  return `# ${topic}\n\nEin praktischer Findora-Home-Leitfaden\n\nDieses E-Book zeigt dir verständlich, wie du das Thema „${topic}“ Schritt für Schritt im Alltag umsetzt. Die Hinweise sind allgemeine Informationen und ersetzen keine individuelle Beratung.\n\n[KAPITEL 1] Grundlagen und Ziel\n\nDefiniere zuerst, was du mit „${topic}“ erreichen möchtest. Ein klares Ziel hilft dir, die nächsten Schritte zu planen und unnötige Entscheidungen zu vermeiden. Notiere, woran du am Ende erkennst, dass du Fortschritte gemacht hast.\n\n[KAPITEL 2] Die richtige Vorbereitung\n\nSammle alle Informationen, Materialien und Hilfsmittel, die du für „${topic}“ brauchst. Teile größere Aufgaben in kleine Etappen auf und lege eine realistische Reihenfolge fest. So bleibt der Einstieg übersichtlich und machbar.\n\n[KAPITEL 3] Schritt für Schritt umsetzen\n\nBeginne mit der einfachsten Etappe und arbeite konzentriert weiter. Prüfe nach jedem Schritt kurz, was bereits funktioniert und was angepasst werden sollte. Kleine, regelmäßige Verbesserungen bringen meist mehr als ein einmaliger großer Aufwand.\n\n[KAPITEL 4] Typische Fehler vermeiden\n\nPlane ausreichend Zeit ein und setze dir nicht zu viele Ziele gleichzeitig. Wenn etwas nicht klappt, halte kurz inne, suche die Ursache und ändere nur einen Punkt nach dem anderen. Dokumentiere hilfreiche Erfahrungen, damit du sie später wieder nutzen kannst.\n\n[KAPITEL 5] Nachhaltig dranbleiben\n\nLege eine einfache Routine fest, die zu deinem Alltag passt. Überprüfe nach einigen Tagen, welche Methode dir wirklich hilft, und behalte nur die Schritte bei, die einen klaren Nutzen bringen. So wird „${topic}“ dauerhaft Teil deines persönlichen Systems.\n\nCheckliste\n\n- Ziel für „${topic}“ festgelegt\n- Vorbereitung abgeschlossen\n- Schritte in kleine Etappen geteilt\n- Ergebnis geprüft und verbessert\n- Eigene Routine für die nächsten Wochen geplant`;
+}
+
 async function generateEbook(topic: string) {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("OPENAI_API_KEY fehlt in den Supabase-Secrets.");
+  if (!apiKey) return fallbackEbook(topic);
   const prompt = `Erstelle ein vollständiges, gut lesbares deutsches E-Book zum Thema „${topic}" für Findora Home. Schreibe einen Titel, eine kurze Einleitung, danach 5 logisch aufeinanderfolgende Kapitel mit praktischen Beispielen und am Ende eine Checkliste. Beginne jedes Kapitel auf einer neuen Seite, indem du exakt eine eigene Zeile im Format [KAPITEL 1] Kapitelüberschrift, [KAPITEL 2] ... usw. verwendest. Schreibe keine erfundenen Produkt- oder Preisversprechen. Verwende klare Absätze und keine Tabellen. Das E-Book soll direkt als PDF gesetzt werden können.`;
   const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: Deno.env.get("DOLLY_MODEL") || "gpt-5", store: false, input: [{ role: "developer", content: "Du bist Dollys E-Book-Redaktion. Schreibe hochwertig, verständlich und vollständig auf Deutsch." }, { role: "user", content: prompt }] }) });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.output_text) throw new Error("Dolly konnte das E-Book gerade nicht erstellen.");
+  if (!response.ok || !data.output_text) return fallbackEbook(topic);
   return String(data.output_text).trim().slice(0, 50000);
 }
 
