@@ -57,6 +57,17 @@ function amazonAsin(link: unknown) {
   return match ? match[1].toUpperCase() : "nicht hinterlegt";
 }
 
+async function googleTrendsHeadlines() {
+  try {
+    const response = await fetch("https://trends.google.com/trends/api/dailytrends?hl=de&tz=-120&geo=DE&ns=15", { headers: { "User-Agent": "FindoraHome-Dolly/1.0" } });
+    if (!response.ok) return [];
+    const raw = await response.text();
+    const data = JSON.parse(raw.replace(/^\)\]\}',?\s*/, ""));
+    const searches = data?.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
+    return searches.slice(0, 5).map((item: any) => String(item?.title?.query || "")).filter(Boolean);
+  } catch { return []; }
+}
+
 async function trendScoutText() {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const [{ data: products, error: productError }, { data: clicks, error: clickError }] = await Promise.all([
@@ -69,7 +80,11 @@ async function trendScoutText() {
   const groups = new Map<string, any[]>();
   for (const product of products || []) { const category = String(product.category || "Weitere Produkte"); if (!groups.has(category)) groups.set(category, []); groups.get(category)!.push(product); }
   if (!groups.size) return "📈 Trend Scout\n\nNoch keine aktiven Produkte im Findora-Katalog.";
-  const rows = ["📈 Findora Trend Scout · letzte 30 Tage", "Deine beworbenen Findora-Home-Produkte, sortiert nach Klicks. Dies sind keine Amazon-Verkaufszahlen.", ""];
+  const googleTrends = await googleTrendsHeadlines();
+  const rows = ["📈 Findora Trend Scout · letzte 30 Tage", "Deine beworbenen Findora-Home-Produkte, sortiert nach Klicks. Dies sind keine Amazon-Verkaufszahlen.", "", "🔎 Google Trends Deutschland (Tagestrends)"];
+  if (googleTrends.length) googleTrends.forEach((headline, index) => rows.push(`${index + 1}. ${headline}`));
+  else rows.push("Google-Trends-Daten sind gerade nicht abrufbar.");
+  rows.push("", "📦 Beworbene Findora-Produkte");
   const sortedGroups = [...groups.entries()].sort((a, b) => {
     const score = (items: any[]) => items.reduce((sum, item) => sum + (counts.get(Number(item.id)) || 0), 0);
     return score(b[1]) - score(a[1]) || a[0].localeCompare(b[0], "de");
@@ -106,7 +121,7 @@ function wrapText(text: string, font: any, size: number, maxWidth: number) {
 }
 
 async function createEbookPdf(topic: string, content: string) {
-  const { PDFDocument, StandardFonts, rgb } = await import("https://esm.sh/pdf-lib@1.17.1");
+  const { PDFDocument, StandardFonts, rgb } = await import("https://esm.sh/pdf-lib@1.17.1?target=deno");
   const pdf = await PDFDocument.create(); const regular = await pdf.embedFont(StandardFonts.Helvetica); const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   let logo: any; try { const logoResponse = await fetch("https://findorahome.github.io/findora-home/findora-logo.png"); if (logoResponse.ok) logo = await pdf.embedPng(new Uint8Array(await logoResponse.arrayBuffer())); } catch { /* Logo bleibt optional. */ }
   const width = 595.28, height = 841.89, margin = 54, textWidth = width - margin * 2; let page = pdf.addPage([width, height]); let y = height - margin;
@@ -142,7 +157,12 @@ async function handleMessage(chatId: string, rawText: string) {
     if (!argument) return sendMessage(chatId, "Schreibe ein Thema hinter /ebook, z. B. /ebook Ordnung im kleinen Zuhause.");
     try {
       await sendMessage(chatId, `📘 Dolly erstellt dein E-Book zum Thema „${argument}“. Einen Moment bitte …`);
-      const content = await generateEbook(argument); const pdf = await createEbookPdf(argument, content);
+      const content = await generateEbook(argument);
+      let pdf: Uint8Array;
+      try { pdf = await createEbookPdf(argument, content); } catch {
+        await sendMessage(chatId, "Der E-Book-Text ist fertig, aber die PDF-Gestaltung konnte gerade nicht geladen werden. Ich sende dir den vollständigen Text jetzt direkt:");
+        return sendMessage(chatId, content);
+      }
       const filename = `findora-ebook-${argument.toLowerCase().replace(/[^a-z0-9äöüß]+/gi, "-").replace(/^-|-$/g, "").slice(0, 50) || "ebook"}.pdf`;
       return sendDocument(chatId, pdf, filename, `📘 Dein E-Book „${argument}“ ist fertig.`);
     } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Dolly konnte das E-Book gerade nicht erstellen."); }
