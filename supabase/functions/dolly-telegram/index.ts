@@ -69,7 +69,7 @@ async function trendScoutText() {
   const groups = new Map<string, any[]>();
   for (const product of products || []) { const category = String(product.category || "Weitere Produkte"); if (!groups.has(category)) groups.set(category, []); groups.get(category)!.push(product); }
   if (!groups.size) return "📈 Trend Scout\n\nNoch keine aktiven Produkte im Findora-Katalog.";
-  const rows = ["📈 Trend Scout · letzte 30 Tage", "Lokaler Findora-Trend nach Produktklicks – keine Amazon-Verkaufszahlen.", ""];
+  const rows = ["📈 Findora Trend Scout · letzte 30 Tage", "Deine beworbenen Findora-Home-Produkte, sortiert nach Klicks. Dies sind keine Amazon-Verkaufszahlen.", ""];
   const sortedGroups = [...groups.entries()].sort((a, b) => {
     const score = (items: any[]) => items.reduce((sum, item) => sum + (counts.get(Number(item.id)) || 0), 0);
     return score(b[1]) - score(a[1]) || a[0].localeCompare(b[0], "de");
