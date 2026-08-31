@@ -112,21 +112,42 @@ async function createEbookPdf(topic: string, content: string) {
   const { PDFDocument, StandardFonts, rgb } = await import("https://esm.sh/pdf-lib@1.17.1?target=deno");
   const pdf = await PDFDocument.create(); const regular = await pdf.embedFont(StandardFonts.Helvetica); const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   let logo: any; try { const logoResponse = await fetch("https://findorahome.github.io/findora-home/findora-logo.png"); if (logoResponse.ok) logo = await pdf.embedPng(new Uint8Array(await logoResponse.arrayBuffer())); } catch { /* Logo bleibt optional. */ }
-  const width = 595.28, height = 841.89, margin = 54, textWidth = width - margin * 2; let page = pdf.addPage([width, height]); let y = height - margin;
-  const newPage = () => { page = pdf.addPage([width, height]); y = height - margin; };
-  const header = () => { page.drawLine({ start: { x: margin, y: height - 42 }, end: { x: width - margin, y: height - 42 }, thickness: 1, color: rgb(0.71, 0.55, 0.37) }); page.drawText("FINDORA HOME", { x: margin, y: height - 32, size: 8, font: bold, color: rgb(0.27, 0.32, 0.16) }); };
-  if (logo) page.drawImage(logo, { x: margin, y: height - margin - 72, width: 72, height: 72 });
-  page.drawText("FINDORA HOME", { x: margin, y: height - margin - 100, size: 12, font: bold, color: rgb(0.27, 0.32, 0.16) });
-  const titleLines = wrapText(topic, bold, 25, textWidth); titleLines.forEach((line, index) => page.drawText(line, { x: margin, y: height - margin - 145 - index * 31, size: 25, font: bold, color: rgb(0.12, 0.10, 0.08) }));
-  y = height - margin - 190 - (titleLines.length - 1) * 31; page.drawText("Ein E-Book von Dolly · Findora Home", { x: margin, y, size: 11, font: regular, color: rgb(0.48, 0.39, 0.31) }); y -= 34;
+  const width = 595.28, height = 841.89, margin = 54, textWidth = width - margin * 2; const ink = rgb(0.12, 0.10, 0.08); const green = rgb(0.27, 0.32, 0.16); const gold = rgb(0.71, 0.55, 0.37); const paper = rgb(0.98, 0.96, 0.93);
+  let page = pdf.addPage([width, height]); let y = height - margin;
+  const centered = (target: any, text: string, font: any, size: number, yy: number, color = ink) => target.drawText(text, { x: (width - font.widthOfTextAtSize(text, size)) / 2, y: yy, size, font, color });
+  // Cover: eigene erste Seite nur für Titel und Marke.
+  page.drawRectangle({ x: 0, y: 0, width, height, color: paper });
+  if (logo) page.drawImage(logo, { x: (width - 112) / 2, y: height - 210, width: 112, height: 112 });
+  centered(page, "FINDORA HOME", bold, 13, height - 245, green);
+  centered(page, "E-BOOK", regular, 10, height - 290, gold);
+  const titleLines = wrapText(topic, bold, 27, width - 100); titleLines.forEach((line, index) => centered(page, line, bold, 27, height - 340 - index * 34));
+  const titleBottom = height - 340 - (titleLines.length - 1) * 34;
+  centered(page, "Ein ausführlicher Leitfaden von Dolly", regular, 12, titleBottom - 55, rgb(0.48, 0.39, 0.31));
+  page.drawLine({ start: { x: width / 2 - 58, y: titleBottom - 82 }, end: { x: width / 2 + 58, y: titleBottom - 82 }, thickness: 1, color: gold });
+  centered(page, "findorahome.github.io", regular, 9, 48, rgb(0.48, 0.39, 0.31));
+
+  // Zweite Seite wird für das Inhaltsverzeichnis reserviert und erst nach dem Rendern gefüllt.
+  const tocPage = pdf.addPage([width, height]);
+  const header = (target: any) => { target.drawLine({ start: { x: margin, y: height - 42 }, end: { x: width - margin, y: height - 42 }, thickness: 1, color: gold }); target.drawText("FINDORA HOME · DOLLY", { x: margin, y: height - 32, size: 8, font: bold, color: green }); };
+  const newBodyPage = () => { page = pdf.addPage([width, height]); y = height - 74; header(page); return page; };
+  let bodyHasContent = false; newBodyPage();
+  const chapterStarts: Array<{ title: string; page: number }> = [];
+  const introText = content.split(/^\[KAPITEL\s+\d+\]/im)[0].replace(/^#.*$/gm, "").trim();
   for (const raw of content.split(/\r?\n/)) {
     const line = raw.trim(); if (!line) { y -= 10; continue; }
-    const chapter = line.match(/^\[KAPITEL\s+\d+\]\s*(.*)$/i);
-    if (chapter) { newPage(); header(); y -= 36; const heading = wrapText(chapter[1] || "Kapitel", bold, 19, textWidth); page.drawRectangle({ x: margin - 10, y: y - heading.length * 24 - 8, width: textWidth + 20, height: heading.length * 24 + 16, color: rgb(0.94, 0.91, 0.86) }); heading.forEach((part, i) => page.drawText(part, { x: margin, y: y - i * 24, size: 19, font: bold, color: rgb(0.12, 0.10, 0.08) })); y -= heading.length * 24 + 20; continue; }
+    const chapter = line.match(/^\[KAPITEL\s+(\d+)\]\s*(.*)$/i);
+    if (chapter) {
+      if (bodyHasContent) { newBodyPage(); bodyHasContent = false; }
+      const heading = wrapText(chapter[2] || `Kapitel ${chapter[1]}`, bold, 19, textWidth); page.drawRectangle({ x: margin - 10, y: y - heading.length * 24 - 8, width: textWidth + 20, height: heading.length * 24 + 16, color: rgb(0.94, 0.91, 0.86) }); heading.forEach((part, i) => page.drawText(part, { x: margin, y: y - i * 24, size: 19, font: bold, color: ink })); y -= heading.length * 24 + 20; bodyHasContent = true; chapterStarts.push({ title: chapter[2] || `Kapitel ${chapter[1]}`, page: pdf.getPages().length }); continue;
+    }
     const isHeading = /^#{1,3}\s/.test(line); const text = line.replace(/^#{1,3}\s*/, ""); const size = isHeading ? 15 : 10.5; const font = isHeading ? bold : regular; const lineHeight = isHeading ? 20 : 15;
-    for (const part of wrapText(text, font, size, textWidth)) { if (y < margin + lineHeight) { newPage(); header(); y -= 28; } page.drawText(part, { x: margin, y, size, font, color: rgb(0.16, 0.14, 0.12) }); y -= lineHeight; }
+    for (const part of wrapText(text, font, size, textWidth)) { if (y < margin + lineHeight + 18) { newBodyPage(); bodyHasContent = false; } page.drawText(part, { x: margin, y, size, font, color: ink }); y -= lineHeight; bodyHasContent = true; }
     if (isHeading) y -= 6;
   }
+  header(tocPage); tocPage.drawText("Inhaltsangabe", { x: margin, y: height - 98, size: 23, font: bold, color: ink }); tocPage.drawLine({ start: { x: margin, y: height - 112 }, end: { x: margin + 90, y: height - 112 }, thickness: 2, color: gold });
+  let tocY = height - 155; const tocEntries = [...(introText ? [{ title: "Einleitung", page: 3 }] : []), ...chapterStarts];
+  tocEntries.forEach((entry, index) => { if (tocY < margin + 25) return; tocPage.drawText(`${index + 1}. ${entry.title}`, { x: margin, y: tocY, size: 12, font: regular, color: ink }); tocPage.drawText(String(entry.page), { x: width - margin - 12, y: tocY, size: 12, font: regular, color: rgb(0.48, 0.39, 0.31) }); tocPage.drawLine({ start: { x: margin + 220, y: tocY + 3 }, end: { x: width - margin - 28, y: tocY + 3 }, thickness: 0.5, color: rgb(0.84, 0.78, 0.70) }); tocY -= 28; });
+  tocPage.drawText("Die Kapitel beginnen jeweils auf einer neuen Seite.", { x: margin, y: 80, size: 10, font: regular, color: rgb(0.48, 0.39, 0.31) });
   const pages = pdf.getPages(); pages.forEach((currentPage: any, index: number) => currentPage.drawText(`${index + 1} / ${pages.length}`, { x: width - margin - 34, y: 24, size: 8, font: regular, color: rgb(0.48, 0.39, 0.31) }));
   return await pdf.save();
 }
