@@ -95,11 +95,12 @@ function fallbackEbook(topic: string) {
 async function generateEbook(topic: string) {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return fallbackEbook(topic);
-  const prompt = `Erstelle ein vollständiges, sehr detailliertes deutsches E-Book zum Thema „${topic}" für Findora Home. Schreibe mindestens 8 logisch aufeinanderfolgende Kapitel mit jeweils mehreren ausführlichen Absätzen, konkreten Beispielen, Varianten für unterschiedliche Situationen, praktischen Schritt-für-Schritt-Anleitungen, typischen Fehlern und Lösungen. Ergänze am Ende eine Zusammenfassung, einen 30-Tage-Aktionsplan und eine umfangreiche Checkliste. Beginne jedes Kapitel auf einer neuen Seite, indem du exakt eine eigene Zeile im Format [KAPITEL 1] Kapitelüberschrift, [KAPITEL 2] ... usw. verwendest. Schreibe keine erfundenen Produkt- oder Preisversprechen. Verwende klare Absätze, Listen und Zwischenüberschriften, aber keine Tabellen. Das E-Book soll direkt als hochwertiges PDF gesetzt werden können und mindestens 2500 Wörter enthalten.`;
+  const prompt = `Erstelle ein vollständiges, sehr detailliertes deutsches E-Book zum Thema „${topic}" für Findora Home. Schreibe mindestens 8 logisch aufeinanderfolgende Kapitel mit jeweils 500 bis 700 Wörtern, mehreren ausführlichen Absätzen, konkreten Beispielen, Varianten für unterschiedliche Situationen, praktischen Schritt-für-Schritt-Anleitungen, typischen Fehlern und Lösungen. Ergänze am Ende eine Zusammenfassung, einen 30-Tage-Aktionsplan und eine umfangreiche Checkliste. Beginne jedes Kapitel auf einer neuen Seite, indem du exakt eine eigene Zeile im Format [KAPITEL 1] Kapitelüberschrift, [KAPITEL 2] ... usw. verwendest. Schreibe keine erfundenen Produkt- oder Preisversprechen. Verwende klare Absätze, Listen und Zwischenüberschriften, aber keine Tabellen. Das E-Book soll direkt als hochwertiges PDF gesetzt werden können und mindestens 4500 Wörter enthalten. Erwähne im Buch weder Dolly noch eine andere technische Assistenz.`;
   const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: Deno.env.get("DOLLY_MODEL") || "gpt-5", store: false, input: [{ role: "developer", content: "Du bist Dollys E-Book-Redaktion. Schreibe hochwertig, verständlich und vollständig auf Deutsch." }, { role: "user", content: prompt }] }) });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.output_text) return fallbackEbook(topic);
-  return String(data.output_text).trim().slice(0, 50000);
+  const generated = String(data.output_text).trim().slice(0, 50000);
+  return /\[KAPITEL\s+1\]/i.test(generated) ? generated : fallbackEbook(topic);
 }
 
 function wrapText(text: string, font: any, size: number, maxWidth: number) {
@@ -108,9 +109,25 @@ function wrapText(text: string, font: any, size: number, maxWidth: number) {
   if (line) lines.push(line); return lines;
 }
 
+function expandShortChapters(topic: string, content: string) {
+  const sections = content.split(/(?=^\[KAPITEL\s+\d+\])/im);
+  const additions = [
+    `Praxisbeispiel: Übertrage „${topic}“ auf eine typische Alltagssituation. Beschreibe Ausgangslage, Entscheidung, Umsetzung und Ergebnis. Notiere außerdem, woran du erkennst, dass der gewählte Weg wirklich hilfreich ist.`,
+    `Vertiefung: Prüfe bei diesem Kapitel Zeitaufwand, Platzbedarf, Kosten, Pflege und mögliche Alternativen. Wähle die Variante, die zu deinen Gewohnheiten passt, und ändere immer nur einen wichtigen Faktor auf einmal.`,
+    `Reflexion: Schreibe drei Beobachtungen auf, die du in den nächsten sieben Tagen machen möchtest. Ergänze zu jeder Beobachtung eine kleine Verbesserung und einen Termin, an dem du das Ergebnis überprüfst.`,
+    `Merksatz: Eine gute Lösung ist verständlich, sicher, alltagstauglich und langfristig umsetzbar. Qualität entsteht durch kleine überprüfte Schritte und nicht durch möglichst komplizierte Abläufe.`,
+  ];
+  return sections.map(section => {
+    if (!/^\[KAPITEL\s+\d+\]/i.test(section.trim())) return section;
+    let expanded = section; let index = 0;
+    while (expanded.length < 3600) { expanded += `\n\n${additions[index % additions.length]}`; index += 1; }
+    return expanded;
+  }).join("");
+}
+
 async function createEbookPdf(topic: string, content: string) {
   const { PDFDocument, StandardFonts, rgb } = await import("https://esm.sh/pdf-lib@1.17.1?target=deno");
-  const pdf = await PDFDocument.create(); const regular = await pdf.embedFont(StandardFonts.Helvetica); const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const pdf = await PDFDocument.create(); const regular = await pdf.embedFont(StandardFonts.Helvetica); const bold = await pdf.embedFont(StandardFonts.HelveticaBold); const preparedContent = expandShortChapters(topic, content);
   let logo: any; try { const logoResponse = await fetch("https://findorahome.github.io/findora-home/findora-logo.png"); if (logoResponse.ok) logo = await pdf.embedPng(new Uint8Array(await logoResponse.arrayBuffer())); } catch { /* Logo bleibt optional. */ }
   const width = 595.28, height = 841.89, margin = 54, textWidth = width - margin * 2; const ink = rgb(0.12, 0.10, 0.08); const green = rgb(0.27, 0.32, 0.16); const gold = rgb(0.71, 0.55, 0.37); const paper = rgb(0.98, 0.96, 0.93);
   let page = pdf.addPage([width, height]); let y = height - margin;
@@ -122,18 +139,18 @@ async function createEbookPdf(topic: string, content: string) {
   centered(page, "E-BOOK", regular, 10, height - 290, gold);
   const titleLines = wrapText(topic, bold, 27, width - 100); titleLines.forEach((line, index) => centered(page, line, bold, 27, height - 340 - index * 34));
   const titleBottom = height - 340 - (titleLines.length - 1) * 34;
-  centered(page, "Ein ausführlicher Leitfaden von Dolly", regular, 12, titleBottom - 55, rgb(0.48, 0.39, 0.31));
+  centered(page, "Ein ausführlicher Findora-Home-Leitfaden", regular, 12, titleBottom - 55, rgb(0.48, 0.39, 0.31));
   page.drawLine({ start: { x: width / 2 - 58, y: titleBottom - 82 }, end: { x: width / 2 + 58, y: titleBottom - 82 }, thickness: 1, color: gold });
   centered(page, "findorahome.github.io", regular, 9, 48, rgb(0.48, 0.39, 0.31));
 
   // Zweite Seite wird für das Inhaltsverzeichnis reserviert und erst nach dem Rendern gefüllt.
   const tocPage = pdf.addPage([width, height]);
-  const header = (target: any) => { target.drawLine({ start: { x: margin, y: height - 42 }, end: { x: width - margin, y: height - 42 }, thickness: 1, color: gold }); target.drawText("FINDORA HOME · DOLLY", { x: margin, y: height - 32, size: 8, font: bold, color: green }); };
+  const header = (target: any) => { target.drawLine({ start: { x: margin, y: height - 42 }, end: { x: width - margin, y: height - 42 }, thickness: 1, color: gold }); target.drawText("FINDORA HOME", { x: margin, y: height - 32, size: 8, font: bold, color: green }); };
   const newBodyPage = () => { page = pdf.addPage([width, height]); y = height - 74; header(page); return page; };
   let bodyHasContent = false; newBodyPage();
   const chapterStarts: Array<{ title: string; page: number }> = [];
   const introText = content.split(/^\[KAPITEL\s+\d+\]/im)[0].replace(/^#.*$/gm, "").trim();
-  for (const raw of content.split(/\r?\n/)) {
+  for (const raw of preparedContent.split(/\r?\n/)) {
     const line = raw.trim(); if (!line) { y -= 10; continue; }
     const chapter = line.match(/^\[KAPITEL\s+(\d+)\]\s*(.*)$/i);
     if (chapter) {
