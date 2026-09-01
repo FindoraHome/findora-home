@@ -63,6 +63,17 @@ function sellableTrend(headline: string) {
   return !blocked.test(headline) && productSignal.test(headline);
 }
 
+async function aiCommercialTrends() {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return [];
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: Deno.env.get("DOLLY_MODEL") || "gpt-5", tools: [{ type: "web_search_preview" }], input: [{ role: "developer", content: "Du filterst Google Trends Deutschland für einen seriösen Produkt-Scout." }, { role: "user", content: "Rufe die aktuellen Google-Trends-Tagestrends für Deutschland ab und gib ausschließlich 5 konkrete, verkaufbare Produkt- oder Einkaufsthemen aus. Keine Personen, Prominenten, Sport, Politik, Unfälle, Wetter oder allgemeinen Nachrichten. Gib nur eine nummerierte Liste mit den exakten Suchbegriffen aus, ohne Erklärung." }], max_output_tokens: 300 }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.output_text) return [];
+    return String(data.output_text).split(/\r?\n/).map(line => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim()).filter(Boolean).filter(sellableTrend).slice(0, 5);
+  } catch { return []; }
+}
+
 async function googleTrendsHeadlines() {
   try {
     const response = await fetch("https://trends.google.com/trends/api/dailytrends?hl=de&tz=-120&geo=DE&ns=15", { headers: { "User-Agent": "FindoraHome-Dolly/1.0" } });
@@ -79,8 +90,10 @@ async function googleTrendsHeadlines() {
     if (!response.ok) return [];
     const xml = await response.text();
     const decode = (value: string) => value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
-    return [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/gi)].map(match => decode(match[1].replace(/<[^>]+>/g, "").trim())).filter(Boolean).filter(sellableTrend).slice(0, 5);
-  } catch { return []; }
+    const headlines = [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/gi)].map(match => decode(match[1].replace(/<[^>]+>/g, "").trim())).filter(Boolean).filter(sellableTrend).slice(0, 5);
+    if (headlines.length) return headlines;
+  } catch { /* KI-Fallback unten verwenden. */ }
+  return await aiCommercialTrends();
 }
 
 async function trendScoutText() {
