@@ -64,12 +64,23 @@ Deno.serve(async (request) => {
   if (Number(count || 0) >= limit) return json({ throttled: true }, 429);
 
   let text = "🔔 Findora Home\n\n👀 Neue Seitenansicht";
+  if (type === "visit") {
+    const [{ count: totalVisits }, { count: todayVisits }] = await Promise.all([
+      service.from("page_views").select("id", { count: "exact", head: true }),
+      service.from("page_views").select("id", { count: "exact", head: true }).gte("visited_at", new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" })).toISOString()),
+    ]);
+    text += `\n📊 Seitenbesuche gesamt: ${Number(totalVisits || 0)}\n📅 Heute: ${Number(todayVisits || 0)}`;
+  }
   if (type === "click") {
     const productId = Number(input.product_id);
     if (!Number.isSafeInteger(productId) || productId <= 0) return json({ error: "Ungültiges Produkt." }, 400);
     const { data: product } = await service.from("products").select("name,active").eq("id", productId).maybeSingle();
     if (!product?.active) return json({ error: "Produkt nicht verfügbar." }, 400);
-    text = `🔔 Findora Home\n\n🛒 Produkt angeklickt\n📦 ${String(product.name || "Unbekannt").slice(0, 160)}`;
+    const [{ count: productClicks }, { count: totalClicks }] = await Promise.all([
+      service.from("product_clicks").select("id", { count: "exact", head: true }).eq("product_id", productId),
+      service.from("product_clicks").select("id", { count: "exact", head: true }),
+    ]);
+    text = `🔔 Findora Home\n\n🛒 Produkt angeklickt\n📦 ${String(product.name || "Unbekannt").slice(0, 160)}\n📊 Klicks für dieses Produkt: ${Number(productClicks || 0)}\n📈 Klicks insgesamt: ${Number(totalClicks || 0)}`;
   } else if (type === "contact") {
     const name = clean(input.name, 100) || "Nicht angegeben";
     const email = clean(input.email, 200) || "Nicht angegeben";
