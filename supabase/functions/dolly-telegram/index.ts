@@ -57,6 +57,12 @@ function amazonAsin(link: unknown) {
   return match ? match[1].toUpperCase() : "nicht hinterlegt";
 }
 
+function sellableTrend(headline: string) {
+  const blocked = /\b(fußball|fussball|bundesliga|champions league|tennis|basketball|handball|formel 1|olympia|sport|spielplan|tabelle|tor|trainer|verein|wahl|politiker|kanzler|präsident|minister|regierung|krieg|unfall|ermittlung|gericht|wetter|temperatur|regen|sturm|erdbeben|promi|schauspieler|sänger|star|tod|beerdigung|vermisst|tatort|nachrichten)\b/i;
+  const productSignal = /\b(kaufen|angebot|preis|test|vergleich|modell|neu|akku|powerbank|handy|smartphone|iphone|samsung|anker|laptop|tablet|kopfhörer|lautsprecher|kamera|lampe|möbel|sofa|stuhl|tisch|regal|küche|grill|garten|balkon|tasche|koffer|rucksack|schuhe|kleid|kosmetik|pflege|kaffee|backen|rezept|lego|playstation|xbox|auto|fahrrad|wohnung|haus|reise|hotel)\b|\d{2,}/i;
+  return !blocked.test(headline) && productSignal.test(headline);
+}
+
 async function googleTrendsHeadlines() {
   try {
     const response = await fetch("https://trends.google.com/trends/api/dailytrends?hl=de&tz=-120&geo=DE&ns=15", { headers: { "User-Agent": "FindoraHome-Dolly/1.0" } });
@@ -64,7 +70,7 @@ async function googleTrendsHeadlines() {
       const raw = await response.text();
       const data = JSON.parse(raw.replace(/^\)\]\}',?\s*/, ""));
       const searches = data?.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
-      const headlines = searches.slice(0, 5).map((item: any) => String(item?.title?.query || "")).filter(Boolean);
+      const headlines = searches.slice(0, 30).map((item: any) => String(item?.title?.query || "")).filter(Boolean).filter(sellableTrend).slice(0, 5);
       if (headlines.length) return headlines;
     }
   } catch { /* RSS-Fallback unten verwenden. */ }
@@ -73,7 +79,7 @@ async function googleTrendsHeadlines() {
     if (!response.ok) return [];
     const xml = await response.text();
     const decode = (value: string) => value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
-    return [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/gi)].slice(0, 10).map(match => decode(match[1].replace(/<[^>]+>/g, "").trim())).filter(Boolean);
+    return [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/gi)].map(match => decode(match[1].replace(/<[^>]+>/g, "").trim())).filter(Boolean).filter(sellableTrend).slice(0, 5);
   } catch { return []; }
 }
 
