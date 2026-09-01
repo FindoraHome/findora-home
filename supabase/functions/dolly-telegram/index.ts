@@ -60,11 +60,20 @@ function amazonAsin(link: unknown) {
 async function googleTrendsHeadlines() {
   try {
     const response = await fetch("https://trends.google.com/trends/api/dailytrends?hl=de&tz=-120&geo=DE&ns=15", { headers: { "User-Agent": "FindoraHome-Dolly/1.0" } });
+    if (response.ok) {
+      const raw = await response.text();
+      const data = JSON.parse(raw.replace(/^\)\]\}',?\s*/, ""));
+      const searches = data?.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
+      const headlines = searches.slice(0, 5).map((item: any) => String(item?.title?.query || "")).filter(Boolean);
+      if (headlines.length) return headlines;
+    }
+  } catch { /* RSS-Fallback unten verwenden. */ }
+  try {
+    const response = await fetch("https://trends.google.com/trending/rss?geo=DE", { headers: { "User-Agent": "FindoraHome-Dolly/1.0" } });
     if (!response.ok) return [];
-    const raw = await response.text();
-    const data = JSON.parse(raw.replace(/^\)\]\}',?\s*/, ""));
-    const searches = data?.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
-    return searches.slice(0, 5).map((item: any) => String(item?.title?.query || "")).filter(Boolean);
+    const xml = await response.text();
+    const decode = (value: string) => value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    return [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/gi)].slice(0, 10).map(match => decode(match[1].replace(/<[^>]+>/g, "").trim())).filter(Boolean);
   } catch { return []; }
 }
 
