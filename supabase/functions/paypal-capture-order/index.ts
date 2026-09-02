@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer@^9";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const db = () => createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
@@ -13,6 +14,15 @@ async function notifyPurchase(productName: string, amount: unknown, orderId: str
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chatId, text: `🔔 Findora Home\n\n🛒 Zahlung erfolgreich\n📦 ${String(productName || "Eigenes Produkt").slice(0, 160)}\n💶 ${amountText}\n📧 ${payerEmail || "E-Mail nicht übermittelt"}\n📥 ${downloadReady ? "Download wurde freigegeben" : "Achtung: Keine Download-Datei hinterlegt"}\n🧾 PayPal: ${orderId}\n🕒 ${time}`, disable_web_page_preview: true }) });
   } catch (error) { console.error("Telegram-Bestellbenachrichtigung fehlgeschlagen:", error); }
+}
+async function sendOrderEmail(email: string | null, productNames: string[], amount: unknown, orderId: string) {
+  const password = Deno.env.get("SMTP_PASSWORD"); const user = Deno.env.get("SMTP_USERNAME") || "findora.home@web.de";
+  if (!email || !password) return false;
+  const price = Number(amount).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+  const link = `https://findorahome.github.io/findora-home/produkte.html?bestellung=${encodeURIComponent(orderId)}`;
+  const transport = nodemailer.createTransport({ host: Deno.env.get("SMTP_HOSTNAME") || "smtp.web.de", port: Number(Deno.env.get("SMTP_PORT") || "587"), secure: (Deno.env.get("SMTP_SECURE") || "false") === "true", requireTLS: true, auth: { user, pass: password } });
+  await transport.sendMail({ from: Deno.env.get("SMTP_FROM") || user, to: email, subject: "Deine Findora-Home-Bestellung und Downloads", text: `Vielen Dank für deine Bestellung bei Findora Home.\n\nProdukte:\n${productNames.map(name => `- ${name}`).join("\n")}\nGesamtbetrag: ${price}\nBestellnummer: ${orderId}\n\nDeine Downloads findest du hier:\n${link}\n\nDer Link ist nur für deine Bestellung bestimmt und darf nicht weitergegeben werden.`, html: `<h2>Vielen Dank für deine Bestellung!</h2><p>Deine Zahlung über <strong>${price}</strong> wurde bestätigt.</p><p><strong>Produkte:</strong><br>${productNames.map(name => String(name).replace(/[<>&]/g, "")).join("<br>")}</p><p><a href="${link}" style="display:inline-block;padding:12px 18px;background:#4e5b2d;color:#fff;text-decoration:none;border-radius:24px">Downloads öffnen</a></p><p>Bestellnummer: ${orderId}</p>` });
+  return true;
 }
 async function token() {
   const id = Deno.env.get("PAYPAL_CLIENT_ID"), secret = Deno.env.get("PAYPAL_CLIENT_SECRET");
@@ -45,7 +55,12 @@ Deno.serve(async (request) => {
     if (!completed) return json({ error: "PayPal konnte die Zahlung nicht abschließen." }, 502);
     const downloads = (transaction.paypal_transaction_items || []).map((item: any) => ({ product_id: item.own_product_id, product_name: item.own_products?.name || "Findora-Produkt", file_name: item.own_products?.file_name || null }));
     const prepared = downloads.length ? downloads : [{ product_id: transaction.own_product_id, product_name: transaction.own_products?.name || "Findora-Produkt", file_name: transaction.own_products?.file_name || null }];
-    if (completed) await notifyPurchase(prepared.map((item: any) => item.product_name).join(", "), transaction.amount, orderId, prepared.length > 0, payerEmail);
-    return json({ completed: true, capture_id: capture?.id || null, downloads: prepared, amount: transaction.amount || null });
+    let emailSent = false;
+    if (completed) {
+      const names = prepared.map((item: any) => item.product_name);
+      await notifyPurchase(names.join(", "), transaction.amount, orderId, prepared.length > 0, payerEmail);
+      emailSent = await sendOrderEmail(payerEmail, names, transaction.amount, orderId).catch(error => { console.error("Bestell-E-Mail fehlgeschlagen:", error); return false; });
+    }
+    return json({ completed: true, capture_id: capture?.id || null, downloads: prepared, amount: transaction.amount || null, email_sent: emailSent });
   } catch (error) { await service.from("paypal_transactions").update({ status: "FAILED" }).eq("id", transaction.id); return json({ error: error instanceof Error ? error.message : "PayPal ist nicht verfügbar." }, 503); }
 });

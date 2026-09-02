@@ -167,19 +167,22 @@ async function sendScheduledWeeklySummary(chatId: string, berlinDate: string) {
   if ((count || 0) > 0) return;
   const now = Date.now(), week = 7 * 86400000;
   const from = new Date(now - week).toISOString(), previous = new Date(now - 2 * week).toISOString();
-  const [{ count: visits }, { count: oldVisits }, { count: clicks }, { count: downloads }, { data: orders }, { data: clickRows }] = await Promise.all([
+  const [{ count: visits }, { count: oldVisits }, { count: clicks }, { count: downloads }, { data: orders }, { data: clickRows }, { data: searchRows }] = await Promise.all([
     service.from("page_views").select("id", { count: "exact", head: true }).gte("visited_at", from),
     service.from("page_views").select("id", { count: "exact", head: true }).gte("visited_at", previous).lt("visited_at", from),
     service.from("product_clicks").select("id", { count: "exact", head: true }).gte("clicked_at", from),
     service.from("download_events").select("id", { count: "exact", head: true }).gte("downloaded_at", from),
     service.from("paypal_transactions").select("amount").eq("status", "COMPLETED").gte("captured_at", from),
     service.from("product_clicks").select("product_id,products(name)").gte("clicked_at", from).limit(1000),
+    service.from("search_queries").select("search_term").gte("searched_at", from).limit(1000),
   ]);
   const totals = new Map<string, number>(); for (const row of clickRows || []) { const name = String((row as any).products?.name || "Unbekannt"); totals.set(name, (totals.get(name) || 0) + 1); }
   const top = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   const revenue = (orders || []).reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const searchTotals = new Map<string, number>(); for (const row of searchRows || []) { const term = String(row.search_term || ""); if (term) searchTotals.set(term, (searchTotals.get(term) || 0) + 1); }
+  const topSearches = [...searchTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   const difference = (visits || 0) - (oldVisits || 0);
-  const text = ["📈 Findora-Wochenbericht", `Zeitraum: letzte 7 Tage · Stand ${berlinDate}`, "", `👀 Seitenaufrufe: ${visits || 0} (${difference >= 0 ? "+" : ""}${difference} zur Vorwoche)`, `🖱 Produktklicks: ${clicks || 0}`, `🛒 Bestellungen: ${(orders || []).length}`, `💶 Umsatz: ${revenue.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}`, `📥 Geöffnete Downloads: ${downloads || 0}`, "", "Top-Produkte:", ...(top.length ? top.map(([name, value], index) => `${index + 1}. ${name} – ${value} Klicks`) : ["Noch keine Produktklicks."])].join("\n");
+  const text = ["📈 Findora-Wochenbericht", `Zeitraum: letzte 7 Tage · Stand ${berlinDate}`, "", `👀 Seitenaufrufe: ${visits || 0} (${difference >= 0 ? "+" : ""}${difference} zur Vorwoche)`, `🖱 Produktklicks: ${clicks || 0}`, `🛒 Bestellungen: ${(orders || []).length}`, `💶 Umsatz: ${revenue.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}`, `📥 Geöffnete Downloads: ${downloads || 0}`, "", "Top-Produkte:", ...(top.length ? top.map(([name, value], index) => `${index + 1}. ${name} – ${value} Klicks`) : ["Noch keine Produktklicks."]), "", "Häufige Suchanfragen:", ...(topSearches.length ? topSearches.map(([term, value], index) => `${index + 1}. ${term} – ${value}×`) : ["Noch keine Suchanfragen."])].join("\n");
   await sendMessage(chatId, text); await service.from("telegram_notification_log").insert({ ip_hash: marker, event_type: marker });
 }
 
@@ -194,6 +197,22 @@ async function orderSummaryText() {
     const download = (order as any).own_products?.file_path ? "Download hinterlegt" : "keine Download-Datei";
     rows.push(`${index + 1}. ${(order as any).own_products?.name || "Eigenes Produkt"}`, `   ${price} · ${status} · ${download}`, `   ${new Date(order.captured_at || order.created_at).toLocaleString("de-DE", { timeZone: "Europe/Berlin" })}${order.payer_email ? ` · ${order.payer_email}` : ""}`);
   }
+  return rows.join("\n");
+}
+
+async function searchInsightsText() {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const [{ data: searches }, { data: products }, { data: ownProducts }] = await Promise.all([
+    service.from("search_queries").select("search_term,searched_at").gte("searched_at", since).limit(2000),
+    service.from("products").select("name,category").eq("active", true),
+    service.from("own_products").select("name").eq("active", true),
+  ]);
+  const counts = new Map<string, number>(); for (const row of searches || []) { const term = String(row.search_term || "").trim(); if (term) counts.set(term, (counts.get(term) || 0) + 1); }
+  const catalog = [...(products || []), ...(ownProducts || [])].map(item => `${item.name || ""} ${(item as any).category || ""}`.toLowerCase());
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const rows = ["🔍 Suchanfragen der letzten 30 Tage", ""];
+  if (!top.length) rows.push("Noch keine Suchanfragen vorhanden.");
+  top.forEach(([term, count], index) => { const words = term.toLowerCase().split(/\s+/).filter(word => word.length > 2); const found = words.length > 0 && catalog.some(text => words.every(word => text.includes(word))); rows.push(`${index + 1}. ${term} – ${count}×`, `   ${found ? "✅ Passendes Produkt vorhanden" : "💡 Noch kein eindeutiges Produkt gefunden"}`); });
   return rows.join("\n");
 }
 
@@ -292,9 +311,10 @@ async function handleMessage(chatId: string, rawText: string) {
   const text = clean(rawText, 4000);
   const [command, ...rest] = text.split(/\s+/);
   const argument = rest.join(" ").trim();
-  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/ueberblick – heutige Besucher, Klicks und Bestellungen\n/bestellungen – letzte Zahlungen und Downloads\n/produkte – aktuelle Produkte anzeigen\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – verkäufliche Google-Trends in Deutschland");
+  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/ueberblick – heutige Besucher, Klicks und Bestellungen\n/bestellungen – letzte Zahlungen und Downloads\n/suchanfragen – häufige Suchen und fehlende Produkte\n/produkte – aktuelle Produkte anzeigen\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – verkäufliche Google-Trends in Deutschland");
   if (command === "/ueberblick" || command === "/überblick") return sendMessage(chatId, await dailySummaryText());
   if (command === "/bestellungen") return sendMessage(chatId, await orderSummaryText());
+  if (command === "/suchanfragen") return sendMessage(chatId, await searchInsightsText());
   if (command === "/produkte") return sendMessage(chatId, `📦 Aktuelle Findora-Produkte\n\n${(await catalogText()).slice(0, 3800)}`);
   if (command === "/beratung" || command === "/service") {
     if (!argument) return sendMessage(chatId, command === "/beratung" ? "Schreibe z. B.: /beratung Ich suche etwas für unterwegs bis 30 €." : "Schreibe z. B.: /service Wie funktioniert der Download nach PayPal-Zahlung?");
