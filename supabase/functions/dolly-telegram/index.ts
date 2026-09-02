@@ -143,6 +143,22 @@ async function dailySummaryText() {
   ].join("\n");
 }
 
+async function sendScheduledDailySummary() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(now);
+  const part = (type: string) => parts.find(item => item.type === type)?.value || "";
+  const berlinDate = `${part("year")}-${part("month")}-${part("day")}`;
+  if (part("hour") !== "22") return { sent: false, reason: "not_due" };
+  const marker = `daily-summary-${berlinDate}`;
+  const { count } = await service.from("telegram_notification_log").select("id", { count: "exact", head: true }).eq("event_type", marker);
+  if ((count || 0) > 0) return { sent: false, reason: "already_sent" };
+  const chatId = Deno.env.get("DOLLY_TELEGRAM_CHAT_ID") || Deno.env.get("TELEGRAM_CHAT_ID");
+  if (!chatId) throw new Error("Telegram-Chat-ID fehlt.");
+  await sendMessage(String(chatId), await dailySummaryText());
+  await service.from("telegram_notification_log").insert({ ip_hash: marker, event_type: marker });
+  return { sent: true };
+}
+
 async function orderSummaryText() {
   const { data, error } = await service.from("paypal_transactions").select("status,amount,currency,payer_email,created_at,captured_at,own_products(name,file_path,file_name)").order("created_at", { ascending: false }).limit(10);
   if (error) throw new Error("Die Bestellungen konnten gerade nicht geladen werden.");
@@ -282,6 +298,10 @@ async function handleMessage(chatId: string, rawText: string) {
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Nur POST wird unterstützt." }, 405);
+  const requestUrl = new URL(request.url);
+  if (requestUrl.searchParams.get("scheduled") === "daily-summary") {
+    try { return json(await sendScheduledDailySummary()); } catch (error) { console.error("Tageszusammenfassung fehlgeschlagen:", error); return json({ error: "Tageszusammenfassung fehlgeschlagen." }, 500); }
+  }
   const secret = Deno.env.get("DOLLY_TELEGRAM_WEBHOOK_SECRET") || Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
   const configuredChatId = Deno.env.get("DOLLY_TELEGRAM_CHAT_ID") || Deno.env.get("TELEGRAM_CHAT_ID");
   if (!secret || !configuredChatId || request.headers.get("x-telegram-bot-api-secret-token") !== secret) return json({ error: "Ungültiger Telegram-Webhook." }, 401);
