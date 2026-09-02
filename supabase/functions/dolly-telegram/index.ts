@@ -156,7 +156,31 @@ async function sendScheduledDailySummary() {
   if (!chatId) throw new Error("Telegram-Chat-ID fehlt.");
   await sendMessage(String(chatId), await dailySummaryText());
   await service.from("telegram_notification_log").insert({ ip_hash: marker, event_type: marker });
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", weekday: "short" }).format(now);
+  if (weekday === "Sun") await sendScheduledWeeklySummary(String(chatId), berlinDate);
   return { sent: true };
+}
+
+async function sendScheduledWeeklySummary(chatId: string, berlinDate: string) {
+  const marker = `weekly-summary-${berlinDate}`;
+  const { count } = await service.from("telegram_notification_log").select("id", { count: "exact", head: true }).eq("event_type", marker);
+  if ((count || 0) > 0) return;
+  const now = Date.now(), week = 7 * 86400000;
+  const from = new Date(now - week).toISOString(), previous = new Date(now - 2 * week).toISOString();
+  const [{ count: visits }, { count: oldVisits }, { count: clicks }, { count: downloads }, { data: orders }, { data: clickRows }] = await Promise.all([
+    service.from("page_views").select("id", { count: "exact", head: true }).gte("visited_at", from),
+    service.from("page_views").select("id", { count: "exact", head: true }).gte("visited_at", previous).lt("visited_at", from),
+    service.from("product_clicks").select("id", { count: "exact", head: true }).gte("clicked_at", from),
+    service.from("download_events").select("id", { count: "exact", head: true }).gte("downloaded_at", from),
+    service.from("paypal_transactions").select("amount").eq("status", "COMPLETED").gte("captured_at", from),
+    service.from("product_clicks").select("product_id,products(name)").gte("clicked_at", from).limit(1000),
+  ]);
+  const totals = new Map<string, number>(); for (const row of clickRows || []) { const name = String((row as any).products?.name || "Unbekannt"); totals.set(name, (totals.get(name) || 0) + 1); }
+  const top = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const revenue = (orders || []).reduce((sum, order) => sum + Number(order.amount || 0), 0);
+  const difference = (visits || 0) - (oldVisits || 0);
+  const text = ["📈 Findora-Wochenbericht", `Zeitraum: letzte 7 Tage · Stand ${berlinDate}`, "", `👀 Seitenaufrufe: ${visits || 0} (${difference >= 0 ? "+" : ""}${difference} zur Vorwoche)`, `🖱 Produktklicks: ${clicks || 0}`, `🛒 Bestellungen: ${(orders || []).length}`, `💶 Umsatz: ${revenue.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}`, `📥 Geöffnete Downloads: ${downloads || 0}`, "", "Top-Produkte:", ...(top.length ? top.map(([name, value], index) => `${index + 1}. ${name} – ${value} Klicks`) : ["Noch keine Produktklicks."])].join("\n");
+  await sendMessage(chatId, text); await service.from("telegram_notification_log").insert({ ip_hash: marker, event_type: marker });
 }
 
 async function orderSummaryText() {
