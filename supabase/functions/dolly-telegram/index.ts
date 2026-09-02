@@ -99,11 +99,62 @@ async function googleTrendsHeadlines() {
 async function trendScoutText() {
   const googleTrends = await googleTrendsHeadlines();
   const date = new Date().toLocaleDateString("de-DE");
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (googleTrends.length && apiKey) {
+    try {
+      const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: Deno.env.get("DOLLY_MODEL") || "gpt-5", tools: [{ type: "web_search_preview" }], input: [{ role: "developer", content: "Du bist ein sorgfältiger deutscher Produkt-Trend-Scout. Erfinde keine Produktdaten. Nenne eine ASIN und einen Preis nur, wenn du sie in einer aktuellen Quelle eindeutig findest; schreibe sonst 'nicht verifiziert'." }, { role: "user", content: `Diese verkäuflichen Themen stammen heute aus Google Trends Deutschland: ${googleTrends.join(", ")}. Erstelle dazu eine gut lesbare nummerierte Liste mit höchstens 5 konkreten kaufbaren Produkten. Je Eintrag: Trendbegriff, genauer Produktname, Marke, Modell, ASIN, ungefährer aktueller Amazon.de-Preis, Trendgrund und Recherchedatum ${date}. Keine Personen, Sport, Politik oder Nachrichten. Keine Findora-Produktliste. Antworte auf Deutsch.` }], max_output_tokens: 1400 }) });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.output_text) return `🔎 Google Trends Deutschland – Produkt-Scout\nStand: ${date}\n\n${String(data.output_text).trim()}\n\nQuelle der Trends: Google Trends Deutschland\nhttps://trends.google.de/trends/trendingsearches/daily?geo=DE`;
+    } catch { /* Schlichte Google-Trends-Liste unten verwenden. */ }
+  }
   const rows = ["🔎 Google Trends Deutschland", `Stand: ${date}`, "Aktuelle meistgesuchte Themen in Deutschland (keine Findora-Produktliste).", ""];
   if (googleTrends.length) googleTrends.forEach((headline, index) => rows.push(`${index + 1}. ${headline}`));
   else rows.push("Google-Trends-Daten sind gerade nicht abrufbar. Öffne https://trends.google.de/trends/trendingsearches/daily?geo=DE");
   rows.push("", "Quelle: Google Trends Deutschland", "https://trends.google.de/trends/trendingsearches/daily?geo=DE");
   return rows.join("\n").slice(0, 12000);
+}
+
+async function dailySummaryText() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const since = start.toISOString();
+  const [{ count: visits }, { count: clicks }, { count: orders }, { data: topProducts }] = await Promise.all([
+    service.from("page_views").select("id", { count: "exact", head: true }).gte("visited_at", since),
+    service.from("product_clicks").select("id", { count: "exact", head: true }).gte("clicked_at", since),
+    service.from("paypal_transactions").select("id", { count: "exact", head: true }).eq("status", "COMPLETED").gte("captured_at", since),
+    service.from("product_clicks").select("product_id,products(name)").gte("clicked_at", since).limit(500),
+  ]);
+  const totals = new Map<string, number>();
+  for (const row of topProducts || []) {
+    const name = String((row as any).products?.name || "Unbekanntes Produkt");
+    totals.set(name, (totals.get(name) || 0) + 1);
+  }
+  const leaders = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return [
+    "📊 Findora-Tagesüberblick",
+    `Stand: ${new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" })}`,
+    "",
+    `👀 Seitenaufrufe heute: ${visits || 0}`,
+    `🖱 Produktklicks heute: ${clicks || 0}`,
+    `🛒 Erfolgreiche Bestellungen heute: ${orders || 0}`,
+    "",
+    "Beliebteste Produkte heute:",
+    ...(leaders.length ? leaders.map(([name, count], index) => `${index + 1}. ${name} – ${count} Klick${count === 1 ? "" : "s"}`) : ["Noch keine Produktklicks vorhanden."]),
+  ].join("\n");
+}
+
+async function orderSummaryText() {
+  const { data, error } = await service.from("paypal_transactions").select("status,amount,currency,payer_email,created_at,captured_at,own_products(name,file_path,file_name)").order("created_at", { ascending: false }).limit(10);
+  if (error) throw new Error("Die Bestellungen konnten gerade nicht geladen werden.");
+  const rows = ["🛒 Letzte Bestellungen und Downloads", ""];
+  if (!data?.length) rows.push("Noch keine PayPal-Bestellungen vorhanden.");
+  for (const [index, order] of (data || []).entries()) {
+    const price = Number(order.amount || 0).toLocaleString("de-DE", { style: "currency", currency: String(order.currency || "EUR") });
+    const status = order.status === "COMPLETED" ? "bezahlt" : order.status === "FAILED" ? "fehlgeschlagen" : order.status === "CANCELLED" ? "abgebrochen" : "begonnen";
+    const download = (order as any).own_products?.file_path ? "Download hinterlegt" : "keine Download-Datei";
+    rows.push(`${index + 1}. ${(order as any).own_products?.name || "Eigenes Produkt"}`, `   ${price} · ${status} · ${download}`, `   ${new Date(order.captured_at || order.created_at).toLocaleString("de-DE", { timeZone: "Europe/Berlin" })}${order.payer_email ? ` · ${order.payer_email}` : ""}`);
+  }
+  return rows.join("\n");
 }
 
 function fallbackEbook(topic: string) {
@@ -201,13 +252,15 @@ async function handleMessage(chatId: string, rawText: string) {
   const text = clean(rawText, 4000);
   const [command, ...rest] = text.split(/\s+/);
   const argument = rest.join(" ").trim();
-  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/produkte – aktuelle Produkte anzeigen\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – aktuelle Google-Trends in Deutschland anzeigen");
+  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/ueberblick – heutige Besucher, Klicks und Bestellungen\n/bestellungen – letzte Zahlungen und Downloads\n/produkte – aktuelle Produkte anzeigen\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – verkäufliche Google-Trends in Deutschland");
+  if (command === "/ueberblick" || command === "/überblick") return sendMessage(chatId, await dailySummaryText());
+  if (command === "/bestellungen") return sendMessage(chatId, await orderSummaryText());
   if (command === "/produkte") return sendMessage(chatId, `📦 Aktuelle Findora-Produkte\n\n${(await catalogText()).slice(0, 3800)}`);
   if (command === "/beratung" || command === "/service") {
     if (!argument) return sendMessage(chatId, command === "/beratung" ? "Schreibe z. B.: /beratung Ich suche etwas für unterwegs bis 30 €." : "Schreibe z. B.: /service Wie funktioniert der Download nach PayPal-Zahlung?");
     try { return sendMessage(chatId, await askOpenAI(command === "/beratung" ? "beratung" : "service", argument)); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Dolly ist gerade nicht verfügbar."); }
   }
-  if (command === "/trend") { try { return sendMessage(chatId, await trendScoutText()); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Trend Scout ist gerade nicht verfügbar."); } }
+  if (command === "/trend" || command === "/trends") { try { return sendMessage(chatId, await trendScoutText()); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Trend Scout ist gerade nicht verfügbar."); } }
   if (command === "/ebook") {
     if (!argument) return sendMessage(chatId, "Schreibe ein Thema hinter /ebook, z. B. /ebook Ordnung im kleinen Zuhause.");
     try {
