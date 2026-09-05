@@ -93,7 +93,33 @@ async function googleTrendsHeadlines() {
     const headlines = [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/gi)].map(match => decode(match[1].replace(/<[^>]+>/g, "").trim())).filter(Boolean).filter(sellableTrend).slice(0, 5);
     if (headlines.length) return headlines;
   } catch { /* KI-Fallback unten verwenden. */ }
-  return await aiCommercialTrends();
+  return [];
+}
+
+async function aiTrendPurchaseIdeas(trends: string[], date: string) {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return "";
+  try {
+    const trendContext = trends.length
+      ? `Nutze diese heute gefundenen Google-Trends aus Deutschland als Ausgangspunkt: ${trends.join(", ")}.`
+      : "Die direkte Google-Trends-Abfrage ist gerade nicht erreichbar. Recherchiere deshalb aktuelle deutsche Suchsignale und aktuelle kaufbezogene Themen aus seriösen, erreichbaren Quellen.";
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: Deno.env.get("DOLLY_MODEL") || "gpt-5",
+        tools: [{ type: "web_search_preview" }],
+        store: false,
+        input: [
+          { role: "developer", content: "Du bist Findora Homes sorgfältiger Produkt-Trend-Scout für Deutschland. Leite aus aktuellen Suchthemen sinnvolle Kaufabsichten ab. Erfinde niemals ASINs, Preise, Modelle oder Quellen." },
+          { role: "user", content: `${trendContext}\n\nErstelle 5 konkrete Vorschläge dafür, was Menschen aufgrund dieser Suchergebnisse wahrscheinlich kaufen könnten. Bevorzuge Wohnen, Haushalt, Garten, Küche, Technik, Familie, Feste und Unterwegs. Keine Personen, Politik, Sportergebnisse, Unfälle oder reine Nachrichten. Format pro Eintrag:\n1. Suchsignal/Trend\n2. Kaufidee\n3. Konkretes Produkt mit Marke und Modell (nur verifiziert, sonst passende Produktart)\n4. Warum Menschen es jetzt kaufen könnten\n5. Zielgruppe\n6. ASIN und ungefährer Amazon.de-Preis nur wenn aktuell eindeutig verifiziert, sonst „nicht verifiziert“\n7. Datum der Recherche: ${date}\nAntworte übersichtlich auf Deutsch.` }
+        ],
+        max_output_tokens: 1800,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    return response.ok && data.output_text ? String(data.output_text).trim().slice(0, 11000) : "";
+  } catch { return ""; }
 }
 
 async function trendScoutText() {
@@ -107,6 +133,8 @@ async function trendScoutText() {
       if (response.ok && data.output_text) return `🔎 Google Trends Deutschland – Produkt-Scout\nStand: ${date}\n\n${String(data.output_text).trim()}\n\nQuelle der Trends: Google Trends Deutschland\nhttps://trends.google.de/trends/trendingsearches/daily?geo=DE`;
     } catch { /* Schlichte Google-Trends-Liste unten verwenden. */ }
   }
+  const purchaseIdeas = await aiTrendPurchaseIdeas(googleTrends, date);
+  if (purchaseIdeas) return `🛍 Trendbasierte Kaufideen für Deutschland\nStand: ${date}\n${googleTrends.length ? "Grundlage: aktuelle Google-Trends Deutschland" : "Direkte Google-Trends-Abfrage nicht erreichbar – Ersatzrecherche aus aktuellen deutschen Suchsignalen"}\n\n${purchaseIdeas}\n\nHinweis: Vorschläge sind recherchierte Kaufideen und keine Garantie für Nachfrage oder Verkäufe.`;
   const rows = ["🔎 Google Trends Deutschland", `Stand: ${date}`, "Aktuelle meistgesuchte Themen in Deutschland (keine Findora-Produktliste).", ""];
   if (googleTrends.length) googleTrends.forEach((headline, index) => rows.push(`${index + 1}. ${headline}`));
   else rows.push("Google-Trends-Daten sind gerade nicht abrufbar. Öffne https://trends.google.de/trends/trendingsearches/daily?geo=DE");
