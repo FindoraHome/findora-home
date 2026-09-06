@@ -142,6 +142,29 @@ async function trendScoutText() {
   return rows.join("\n").slice(0, 12000);
 }
 
+async function munichFestivalsText() {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) throw new Error("Die Fest-Recherche ist noch nicht eingerichtet.");
+  const today = new Date().toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" });
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: Deno.env.get("DOLLY_MODEL") || "gpt-5",
+      tools: [{ type: "web_search_preview" }],
+      store: false,
+      input: [
+        { role: "developer", content: "Du bist Dollys zuverlässiger Veranstaltungsscout für München. Nutze bevorzugt offizielle Veranstalterseiten und muenchen.de. Erfinde keine Termine, Orte, Eintrittspreise oder Links." },
+        { role: "user", content: `Heute ist der ${today}. Recherchiere die nächsten tatsächlich angekündigten Feste in der Stadt München und liste höchstens 10 kommende Termine chronologisch auf. Gemeint sind Stadtteilfeste, Volksfeste, Straßenfeste, Kulturfeste, saisonale Feste und Märkte mit Festcharakter. Keine vergangenen Termine, keine reinen Konzerte, Sportveranstaltungen, politischen Termine oder Veranstaltungen außerhalb Münchens.\n\nJe Eintrag:\n1. Name des Festes\n2. Datum oder Zeitraum\n3. genauer Ort/Stadtteil\n4. kurze Beschreibung\n5. Eintritt nur, wenn bestätigt\n6. anklickbarer Link zur offiziellen Quelle\n\nFalls weniger als 10 verifizierte Feste verfügbar sind, nenne nur die bestätigten. Antworte übersichtlich auf Deutsch.` }
+      ],
+      max_output_tokens: 1800,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.output_text) throw new Error("Kommende Feste in München konnten gerade nicht recherchiert werden.");
+  return `🎉 Kommende Feste in München\nStand: ${today}\n\n${String(data.output_text).trim().slice(0, 11000)}\n\nBitte prüfe Terminänderungen vor dem Besuch noch einmal auf der verlinkten offiziellen Seite.`;
+}
+
 async function dailySummaryText() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -339,7 +362,7 @@ async function handleMessage(chatId: string, rawText: string) {
   const text = clean(rawText, 4000);
   const [command, ...rest] = text.split(/\s+/);
   const argument = rest.join(" ").trim();
-  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/ueberblick – heutige Besucher, Klicks und Bestellungen\n/bestellungen – letzte Zahlungen und Downloads\n/suchanfragen – häufige Suchen und fehlende Produkte\n/produkte – aktuelle Produkte anzeigen\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – verkäufliche Google-Trends in Deutschland");
+  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/ueberblick – heutige Besucher, Klicks und Bestellungen\n/bestellungen – letzte Zahlungen und Downloads\n/suchanfragen – häufige Suchen und fehlende Produkte\n/produkte – aktuelle Produkte anzeigen\n/fest – kommende Feste in München\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – verkäufliche Google-Trends in Deutschland");
   if (command === "/ueberblick" || command === "/überblick") return sendMessage(chatId, await dailySummaryText());
   if (command === "/bestellungen") return sendMessage(chatId, await orderSummaryText());
   if (command === "/suchanfragen") return sendMessage(chatId, await searchInsightsText());
@@ -349,6 +372,7 @@ async function handleMessage(chatId: string, rawText: string) {
     try { return sendMessage(chatId, await askOpenAI(command === "/beratung" ? "beratung" : "service", argument)); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Dolly ist gerade nicht verfügbar."); }
   }
   if (command === "/trend" || command === "/trends") { try { return sendMessage(chatId, await trendScoutText()); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Trend Scout ist gerade nicht verfügbar."); } }
+  if (command === "/fest" || command === "/feste") { try { return sendMessage(chatId, await munichFestivalsText()); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Die Fest-Recherche ist gerade nicht verfügbar."); } }
   if (command === "/ebook") {
     if (!argument) return sendMessage(chatId, "Schreibe ein Thema hinter /ebook, z. B. /ebook Ordnung im kleinen Zuhause.");
     try {
