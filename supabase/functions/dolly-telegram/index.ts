@@ -165,6 +165,29 @@ async function munichFestivalsText() {
   return `🎉 Kommende Feste in München\nStand: ${today}\n\n${String(data.output_text).trim().slice(0, 11000)}\n\nBitte prüfe Terminänderungen vor dem Besuch noch einmal auf der verlinkten offiziellen Seite.`;
 }
 
+async function currentProductIdeasText() {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) throw new Error("Die Ideen-Recherche ist noch nicht eingerichtet.");
+  const today = new Date().toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" });
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: Deno.env.get("DOLLY_MODEL") || "gpt-5",
+      tools: [{ type: "web_search_preview" }],
+      store: false,
+      input: [
+        { role: "developer", content: "Du bist Findora Homes sorgfältige Ideen- und Bedarfsanalystin für Deutschland. Recherchiere aktuell und trenne belegbare Signale von eigenen Schlussfolgerungen. Erfinde keine Verkaufszahlen, Preise, Modelle, ASINs oder Trends." },
+        { role: "user", content: `Heute ist der ${today}. Entwickle mindestens 10 und höchstens 15 unterschiedliche Produktideen für Findora Home, die Menschen in Deutschland aktuell gebrauchen oder kaufen könnten. Berücksichtige gemeinsam: Jahreszeit, Wetter und typische saisonale Bedürfnisse, bevorstehende Feiertage und Feste, Reisen und Alltag, Familie, Wohnen, Haushalt, Küche, Garten, Technik, aktuelle Suchinteressen und relevante gesellschaftliche Entwicklungen. Ignoriere Personenklatsch, Politik, Sportergebnisse, Katastrophen und Produkte, die nicht seriös verkauft werden können.\n\nFür jede Idee nenne:\n1. konkreten Produktnamen oder eine klare Produktart\n2. Kategorie\n3. welches aktuelle Bedürfnis damit gelöst wird\n4. warum gerade jetzt Nachfrage entstehen könnte\n5. Zielgruppe\n6. geeigneten Suchbegriff für Amazon.de\n7. Marke, Modell, ASIN und ungefähren Preis nur wenn aktuell eindeutig verifiziert; sonst „noch zu recherchieren“\n8. Priorität: hoch, mittel oder beobachten\n\nSortiere die stärksten Ideen zuerst. Die Vorschläge müssen sich deutlich voneinander unterscheiden; nenne keine doppelten oder nur leicht abgewandelten Produkte. Schreibe verständlich auf Deutsch und schließe mit drei kurzen Empfehlungen ab, welche Ideen Findora Home zuerst prüfen sollte.` }
+      ],
+      max_output_tokens: 3200,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.output_text) throw new Error("Aktuelle Produktideen konnten gerade nicht recherchiert werden.");
+  return `💡 Aktuelle Produktideen für Findora Home\nStand: ${today}\n\n${String(data.output_text).trim().slice(0, 15000)}\n\nHinweis: Die Vorschläge sind recherchierte Ideen. Nachfrage, Preise und Verfügbarkeit müssen vor der Aufnahme geprüft werden.`;
+}
+
 async function dailySummaryText() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -362,7 +385,7 @@ async function handleMessage(chatId: string, rawText: string) {
   const text = clean(rawText, 4000);
   const [command, ...rest] = text.split(/\s+/);
   const argument = rest.join(" ").trim();
-  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/ueberblick – heutige Besucher, Klicks und Bestellungen\n/bestellungen – letzte Zahlungen und Downloads\n/suchanfragen – häufige Suchen und fehlende Produkte\n/produkte – aktuelle Produkte anzeigen\n/fest – kommende Feste in München\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – verkäufliche Google-Trends in Deutschland");
+  if (command === "/start" || command === "/hilfe") return sendMessage(chatId, "✨ Dolly – Findora Home\n\n/ueberblick – heutige Besucher, Klicks und Bestellungen\n/bestellungen – letzte Zahlungen und Downloads\n/suchanfragen – häufige Suchen und fehlende Produkte\n/produkte – aktuelle Produkte anzeigen\n/ideen – mindestens 10 aktuelle Produktideen\n/fest – kommende Feste in München\n/beratung Frage – passende Produkte empfehlen lassen\n/service Frage – Hilfe zu Produkten, PayPal und Downloads\n/ebook Thema – komplettes E-Book als PDF erstellen\n/trend – verkäufliche Google-Trends in Deutschland");
   if (command === "/ueberblick" || command === "/überblick") return sendMessage(chatId, await dailySummaryText());
   if (command === "/bestellungen") return sendMessage(chatId, await orderSummaryText());
   if (command === "/suchanfragen") return sendMessage(chatId, await searchInsightsText());
@@ -373,6 +396,7 @@ async function handleMessage(chatId: string, rawText: string) {
   }
   if (command === "/trend" || command === "/trends") { try { return sendMessage(chatId, await trendScoutText()); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Trend Scout ist gerade nicht verfügbar."); } }
   if (command === "/fest" || command === "/feste") { try { return sendMessage(chatId, await munichFestivalsText()); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Die Fest-Recherche ist gerade nicht verfügbar."); } }
+  if (command === "/ideen" || command === "/idee") { try { await sendMessage(chatId, "💡 Dolly recherchiert aktuelle Bedürfnisse und Produktideen. Einen Moment bitte …"); return sendMessage(chatId, await currentProductIdeasText()); } catch (error) { return sendMessage(chatId, error instanceof Error ? error.message : "Die Ideen-Recherche ist gerade nicht verfügbar."); } }
   if (command === "/ebook") {
     if (!argument) return sendMessage(chatId, "Schreibe ein Thema hinter /ebook, z. B. /ebook Ordnung im kleinen Zuhause.");
     try {
