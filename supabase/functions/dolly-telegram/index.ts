@@ -165,27 +165,44 @@ async function munichFestivalsText() {
   return `🎉 Kommende Feste in München\nStand: ${today}\n\n${String(data.output_text).trim().slice(0, 11000)}\n\nBitte prüfe Terminänderungen vor dem Besuch noch einmal auf der verlinkten offiziellen Seite.`;
 }
 
+function seasonalProductIdeasFallback(today: string) {
+  const month = Number(new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", month: "numeric" }).format(new Date()));
+  const common = [
+    ["Kabel- und Technik-Organizer", "Ordnung & Technik", "Kabel und Ladegeräte griffbereit halten", "Homeoffice, Familien", "Kabel Organizer Schreibtisch", "mittel"],
+    ["Faltbarer Einkaufstrolley", "Unterwegs", "Schwere Einkäufe leichter transportieren", "Stadtbewohner, Senioren", "Einkaufstrolley faltbar leicht", "hoch"],
+    ["Auslaufsichere Lunchbox mit Fächern", "Küche & Unterwegs", "Mahlzeiten für Arbeit und Schule mitnehmen", "Berufstätige, Familien", "Lunchbox auslaufsicher Fächer", "hoch"],
+    ["Bewegungsmelder-Nachtlicht", "Beleuchtung", "Sichere Orientierung ohne großes Licht", "Familien, Senioren", "Nachtlicht Bewegungsmelder warmweiß", "mittel"],
+    ["Vakuumbeutel-Set", "Aufbewahrung", "Kleidung und Bettwaren platzsparend lagern", "Haushalte mit wenig Platz", "Vakuumbeutel Kleidung wiederverwendbar", "mittel"],
+    ["Wiederaufladbarer Etikettendrucker", "Organisation", "Vorräte, Ordner und Boxen beschriften", "Familien, Homeoffice", "Etikettendrucker Bluetooth klein", "beobachten"],
+  ];
+  const seasons: Record<string, string[][]> = {
+    winter: [["Elektrische Wärmedecke mit Abschaltautomatik","Wohnen","Wärme an kalten Abenden","Erwachsene, Senioren","Wärmedecke Abschaltautomatik waschbar","hoch"],["Luftbefeuchter mit Hygrometer","Raumklima","Trockene Heizungsluft ausgleichen","Familien, Homeoffice","Luftbefeuchter Hygrometer leise","mittel"],["Thermo-Fensterfolie","Energiesparen","Zugluft und Wärmeverlust verringern","Mieter, Haushalte","Thermo Fensterfolie Winter","mittel"],["Streusalzfreie Schuh-Spikes","Unterwegs","Mehr Halt bei Eis und Schnee","Pendler, Senioren","Schuh Spikes Eis Alltag","hoch"],["Heißluftfritteusen-Zubehörset","Küche","Einfache warme Mahlzeiten zubereiten","Familien, Singles","Airfryer Zubehör Set passend","beobachten"],["Tageslichtlampe","Wohlbefinden","Dunkle Wintertage angenehmer gestalten","Homeoffice, Erwachsene","Tageslichtlampe 10000 Lux","mittel"]],
+    spring: [["Anzuchtset für Kräuter","Garten & Küche","Kräuter auf Fensterbank oder Balkon ziehen","Familien, Hobbygärtner","Kräuter Anzuchtset Fensterbank","hoch"],["Pollen-Schutzgitter","Haushalt","Lüften bei stärkerem Pollenflug","Allergiker","Pollenschutzgitter Fenster","hoch"],["Faltbare Balkon-Pflanzstation","Garten & Balkon","Kleine Außenflächen praktisch nutzen","Stadtbewohner","Pflanztisch Balkon klappbar","mittel"],["Fensterreinigungs-Set mit Teleskopstiel","Haushalt","Frühjahrsputz erleichtern","Haushalte","Fensterreinigung Set Teleskop","mittel"],["Picknickdecke wasserdicht","Unterwegs","Ausflüge bei milderem Wetter","Familien, Paare","Picknickdecke wasserdicht faltbar","hoch"],["Fahrrad-Reparatur-Multitool","Unterwegs","Start in die Fahrradsaison","Pendler, Freizeitfahrer","Fahrrad Multitool Reparatur","mittel"]],
+    summer: [["Tragbarer Tischventilator mit Akku","Wohnen & Unterwegs","Abkühlung ohne feste Installation","Homeoffice, Reisende","Akku Tischventilator leise","hoch"],["Isolierte Kühltasche","Unterwegs","Lebensmittel und Getränke kühl halten","Familien, Ausflügler","Kühltasche isoliert faltbar","hoch"],["UV-Sonnensegel für Balkon","Garten & Balkon","Schatten auf kleinen Außenflächen","Mieter, Familien","Sonnensegel Balkon UV Schutz","hoch"],["Mückenlampe für den Innenbereich","Haushalt","Insekten in Wohnräumen reduzieren","Haushalte","Mückenlampe innen geruchlos","mittel"],["Trinkflasche mit Zeitmarkierung","Unterwegs","Regelmäßiges Trinken unterstützen","Sport, Büro, Reisen","Trinkflasche Zeitmarkierung auslaufsicher","mittel"],["Wasserdichte Handyhülle","Reisen","Handy am Wasser schützen","Urlauber, Familien","Handyhülle wasserdicht Strand","mittel"]],
+    autumn: [["Wiederaufladbarer Fusselrasierer","Kleidung & Pflege","Pullover und Mäntel auffrischen","Haushalte, Berufstätige","Fusselrasierer wiederaufladbar","hoch"],["Tür- und Fenster-Zugluftstopper","Wohnen","Kühle Zugluft und Wärmeverlust verringern","Mieter, Haushalte","Zugluftstopper Tür Fenster","hoch"],["Schuh- und Handschuhtrockner","Haushalt","Nasse Alltagskleidung schneller trocknen","Familien, Pendler","Schuhtrockner Handschuhe kompakt","mittel"],["Vorratsdosen für Backzutaten","Küche","Backsaison und Vorräte organisieren","Familien, Hobbybäcker","Vorratsdosen Backzutaten Set","hoch"],["Reflektierender Rucksack-Regenschutz","Unterwegs","Sichtbarkeit und Regenschutz in dunkler Jahreszeit","Pendler, Schüler","Rucksack Regenschutz reflektierend","hoch"],["Pilz- und Laub-Reinigungsmatte","Eingangsbereich","Schmutz und Nässe im Flur reduzieren","Haushalte, Haustierbesitzer","Schmutzfangmatte Herbst waschbar","mittel"]],
+  };
+  const season = month <= 2 || month === 12 ? "winter" : month <= 5 ? "spring" : month <= 8 ? "summer" : "autumn";
+  const ideas = [...seasons[season], ...common];
+  const lines = ideas.map((item, index) => `${index + 1}. ${item[0]}\nKategorie: ${item[1]}\nBedürfnis: ${item[2]}\nZielgruppe: ${item[3]}\nAmazon-Suche: ${item[4]}\nModell/ASIN/Preis: noch zu recherchieren\nPriorität: ${item[5]}`);
+  return `💡 Saisonale Produktideen für Findora Home\nStand: ${today}\nAktuelle Web-Recherche ist momentan nicht erreichbar. Diese Ersatzliste basiert transparent auf Jahreszeit und typischen Alltagsbedürfnissen in Deutschland.\n\n${lines.join("\n\n")}\n\nZuerst prüfen: die drei mit „hoch“ bewerteten Ideen, die am besten zu deinen Kategorien passen.`;
+}
+
 async function currentProductIdeasText() {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("Die Ideen-Recherche ist noch nicht eingerichtet.");
   const today = new Date().toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" });
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: Deno.env.get("DOLLY_MODEL") || "gpt-5",
-      tools: [{ type: "web_search_preview" }],
-      store: false,
-      input: [
-        { role: "developer", content: "Du bist Findora Homes sorgfältige Ideen- und Bedarfsanalystin für Deutschland. Recherchiere aktuell und trenne belegbare Signale von eigenen Schlussfolgerungen. Erfinde keine Verkaufszahlen, Preise, Modelle, ASINs oder Trends." },
-        { role: "user", content: `Heute ist der ${today}. Entwickle mindestens 10 und höchstens 15 unterschiedliche Produktideen für Findora Home, die Menschen in Deutschland aktuell gebrauchen oder kaufen könnten. Berücksichtige gemeinsam: Jahreszeit, Wetter und typische saisonale Bedürfnisse, bevorstehende Feiertage und Feste, Reisen und Alltag, Familie, Wohnen, Haushalt, Küche, Garten, Technik, aktuelle Suchinteressen und relevante gesellschaftliche Entwicklungen. Ignoriere Personenklatsch, Politik, Sportergebnisse, Katastrophen und Produkte, die nicht seriös verkauft werden können.\n\nFür jede Idee nenne:\n1. konkreten Produktnamen oder eine klare Produktart\n2. Kategorie\n3. welches aktuelle Bedürfnis damit gelöst wird\n4. warum gerade jetzt Nachfrage entstehen könnte\n5. Zielgruppe\n6. geeigneten Suchbegriff für Amazon.de\n7. Marke, Modell, ASIN und ungefähren Preis nur wenn aktuell eindeutig verifiziert; sonst „noch zu recherchieren“\n8. Priorität: hoch, mittel oder beobachten\n\nSortiere die stärksten Ideen zuerst. Die Vorschläge müssen sich deutlich voneinander unterscheiden; nenne keine doppelten oder nur leicht abgewandelten Produkte. Schreibe verständlich auf Deutsch und schließe mit drei kurzen Empfehlungen ab, welche Ideen Findora Home zuerst prüfen sollte.` }
-      ],
-      max_output_tokens: 3200,
-    }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.output_text) throw new Error("Aktuelle Produktideen konnten gerade nicht recherchiert werden.");
-  return `💡 Aktuelle Produktideen für Findora Home\nStand: ${today}\n\n${String(data.output_text).trim().slice(0, 15000)}\n\nHinweis: Die Vorschläge sind recherchierte Ideen. Nachfrage, Preise und Verfügbarkeit müssen vor der Aufnahme geprüft werden.`;
+  if (!apiKey) return seasonalProductIdeasFallback(today);
+  const prompt = `Heute ist der ${today}. Entwickle 10 bis 15 deutlich unterschiedliche Produktideen für Findora Home in Deutschland. Berücksichtige Jahreszeit, Wetter, bevorstehende Feiertage und Feste, Reisen, Familie, Wohnen, Haushalt, Küche, Garten, Technik und aktuelle Kaufinteressen. Keine Politik, Personen, Sportergebnisse oder Katastrophen. Nenne je Idee Produkt, Kategorie, gelöstes Bedürfnis, aktuellen Kaufgrund, Zielgruppe, Amazon.de-Suchbegriff und Priorität. Marke, Modell, ASIN und Preis nur wenn verifiziert, sonst „noch zu recherchieren“. Keine Dopplungen. Antworte auf Deutsch.`;
+  for (const useWeb of [true, false]) {
+    try {
+      const payload: Record<string, unknown> = { model: Deno.env.get("DOLLY_MODEL") || "gpt-5", store: false, input: [{ role: "developer", content: "Du bist Findora Homes sorgfältige Ideen- und Bedarfsanalystin. Erfinde keine Verkaufszahlen oder Produktdaten." }, { role: "user", content: prompt }], max_output_tokens: 2200 };
+      if (useWeb) payload.tools = [{ type: "web_search_preview" }];
+      const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.output_text) return `💡 Aktuelle Produktideen für Findora Home\nStand: ${today}\n\n${String(data.output_text).trim().slice(0, 14000)}\n\nHinweis: Nachfrage, Preise und Verfügbarkeit vor der Aufnahme prüfen.`;
+      console.error("Ideen-Recherche fehlgeschlagen:", response.status, data?.error?.message || "keine Antwort");
+    } catch (error) { console.error("Ideen-Recherche nicht erreichbar:", error); }
+  }
+  return seasonalProductIdeasFallback(today);
 }
 
 async function dailySummaryText() {
