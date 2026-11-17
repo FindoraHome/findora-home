@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.instagram-link-bot]
 verify_jwt = false
+
+[functions.backfill-normal-links]
+verify_jwt = true
