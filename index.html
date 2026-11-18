@@ -380,6 +380,30 @@ main{position:relative;isolation:isolate}main:before,main:after{content:"";posit
   #admin-category-list .category-pill > span:first-child,
   #admin-partner-list .category-pill > span:first-child { min-width:0; overflow-wrap:anywhere; }
   @media(max-width:500px) { #admin-category-list, #admin-partner-list { grid-template-columns:1fr; max-height:260px; } }
+  @media(max-width:700px) {
+    body.admin-mode header{position:static;padding:8px 10px}
+    body.admin-mode .header-inner{display:flex;align-items:center;gap:8px}
+    body.admin-mode .header-inner .brand-lockup .logo{width:58px;height:58px}
+    body.admin-mode .header-inner .brand-lockup .logo img{width:58px;height:58px}
+    body.admin-mode .header-search,body.admin-mode .category-nav-wrap,body.admin-mode .header-products-link,body.admin-mode .favorites-toggle,body.admin-mode .header-ornament{display:none!important}
+    body.admin-mode .header-nav{margin-left:auto;display:flex;gap:6px}
+    body.admin-mode .admin-panel{padding:14px 0 28px;overflow-x:hidden}
+    body.admin-mode .admin-inner{width:100%;max-width:100%;padding:0 10px}
+    body.admin-mode .admin-layout{display:block}
+    body.admin-mode .admin-card{width:100%;max-width:100%;margin-bottom:12px;padding:14px;border-radius:12px;overflow:hidden}
+    body.admin-mode .admin-head{gap:8px;margin-bottom:12px}
+    body.admin-mode .admin-head .admin-actions{width:100%}
+    body.admin-mode .admin-head .admin-actions>*{flex:1;min-width:0;text-align:center}
+    body.admin-mode .admin-field input,body.admin-mode .admin-field textarea,body.admin-mode .admin-field select,body.admin-mode .category-add input{min-width:0;font-size:16px}
+    body.admin-mode .admin-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+    body.admin-mode .admin-actions .admin-btn{width:100%;min-width:0;white-space:normal}
+    body.admin-mode .admin-product{grid-template-columns:48px minmax(0,1fr);align-items:start}
+    body.admin-mode .admin-product>.admin-actions{grid-column:1/-1}
+    body.admin-mode .admin-stats{grid-template-columns:1fr 1fr;gap:8px}
+    body.admin-mode .admin-stats .stats-reset-time,body.admin-mode .admin-stats .stats-download{grid-column:1/-1;width:100%}
+    body.admin-mode .click-stat-row{align-items:flex-start;flex-direction:column;gap:5px}
+    body.admin-mode .click-stat-name{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  }
 </style>
 </head>
 
