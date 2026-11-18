@@ -50,6 +50,15 @@ Deno.serve(async (request) => {
     const result = await sendTelegram(isDolly ? "✅ Dolly\n\nDolly-Telegram-Verbindung funktioniert." : "✅ Findora Home\n\nTelegram-Benachrichtigungen funktionieren.", isDolly ? "dolly" : "main");
     return json(result, result.status);
   }
+  if (type === "amazon_report") {
+    if (!(await isAdmin(request))) return json({ error: "Nur Admins dürfen Amazon-Berichte melden." }, 403);
+    const count = Math.max(1, Math.min(9999, Number(input.count) || 1));
+    const items = clean(input.items, 3000);
+    if (!items) return json({ error: "Keine Bestellungen übergeben." }, 400);
+    const time = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
+    const result = await sendTelegram(`🛒 Amazon PartnerNet\n\n${count} neue bestellte Artikel erkannt\n\n${items}\n\n🕒 Importiert: ${time}`, "dolly");
+    return json(result, result.status);
+  }
   if (type !== "visit" && type !== "click" && type !== "contact") return json({ error: "Unbekannter Benachrichtigungstyp." }, 400);
 
   const serviceUrl = Deno.env.get("SUPABASE_URL") ?? "";
