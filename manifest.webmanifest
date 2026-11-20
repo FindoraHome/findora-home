@@ -3,7 +3,7 @@
   "short_name": "Findora Home",
   "description": "Findora Home mobil verwalten – Produkte, Disney-Auswahl, Bilder, Links und Statistiken.",
   "id": "./",
-  "start_url": "./",
+  "start_url": "./?app=1#admin-panel",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -15,6 +15,7 @@
   ],
   "shortcuts": [
     {"name": "Admin öffnen", "short_name": "Admin", "url": "./?app=1#admin-panel", "icons": [{"src": "app-icon-192.png", "sizes": "192x192"}]},
+    {"name": "Kundenansicht", "short_name": "Vorschau", "url": "./?customer=1", "icons": [{"src": "app-icon-192.png", "sizes": "192x192"}]},
     {"name": "Links verwalten", "short_name": "Links", "url": "./links.html", "icons": [{"src": "app-icon-192.png", "sizes": "192x192"}]},
     {"name": "Disney-Produkte", "short_name": "Disney", "url": "./disney.html", "icons": [{"src": "app-icon-192.png", "sizes": "192x192"}]}
   ]

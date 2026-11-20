@@ -1,4 +1,4 @@
-const CACHE = "findora-home-app-v2";
+const CACHE = "findora-home-app-v3";
 const SHELL = ["./", "./index.html", "./produkte.html", "./disney.html", "./links.html", "./findora-logo.png", "./app-icon-192.png", "./app-icon-512.png"];
 
 self.addEventListener("install", event => {
