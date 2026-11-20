@@ -40,6 +40,28 @@ async function sendTelegram(text: string, bot = "main") {
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Nur POST wird unterstützt." }, 405);
+  const requestUrl = new URL(request.url);
+  if (requestUrl.searchParams.get("scheduled") === "poll-results") {
+    const serviceUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!serviceUrl || !serviceKey) return json({ error: "Supabase-Service ist nicht konfiguriert." }, 503);
+    const service = createClient(serviceUrl, serviceKey);
+    const { data: endedPolls, error } = await service.from("polls").select("id,question,ends_at,active,result_notified").eq("result_notified", false).or(`ends_at.lte.${new Date().toISOString()},active.eq.false`).order("ends_at", { ascending: true }).limit(20);
+    if (error) return json({ error: error.message }, 500);
+    let sent = 0;
+    for (const poll of endedPolls || []) {
+      const [{ data: options }, { data: votes }] = await Promise.all([
+        service.from("poll_options").select("id,label,sort_order").eq("poll_id", poll.id).order("sort_order", { ascending: true }),
+        service.from("poll_votes").select("option_id,visitor_token").eq("poll_id", poll.id),
+      ]);
+      const voteRows = votes || [], participants = new Set(voteRows.map((vote) => vote.visitor_token)).size;
+      const lines = (options || []).map((option) => `• ${clean(option.label, 160)}: ${voteRows.filter((vote) => vote.option_id === option.id).length} Stimmen`);
+      const time = new Date(poll.ends_at).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
+      const result = await sendTelegram(`📊 Abstimmung beendet\n\n❓ ${clean(poll.question, 300)}\n\n${lines.join("\n") || "Keine Stimmen abgegeben."}\n\n👥 Teilnehmer: ${participants}\n🕒 Ende: ${time}`, "dolly");
+      if (result.ok) { await service.from("polls").update({ result_notified: true }).eq("id", poll.id); sent += 1; }
+    }
+    return json({ ok: true, sent });
+  }
   let input: Record<string, unknown>;
   try { input = await request.json(); } catch { return json({ error: "Ungültige Anfrage." }, 400); }
   const type = String(input.type || "");
@@ -57,6 +79,24 @@ Deno.serve(async (request) => {
     if (!items) return json({ error: "Keine Bestellungen übergeben." }, 400);
     const time = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
     const result = await sendTelegram(`🛒 Amazon PartnerNet\n\n${count} neue bestellte Artikel erkannt\n\n${items}\n\n🕒 Importiert: ${time}`, "dolly");
+    return json(result, result.status);
+  }
+  if (type === "poll_vote") {
+    const pollId = Number(input.poll_id), optionIds = Array.isArray(input.option_ids) ? input.option_ids.map(Number).filter(Number.isSafeInteger) : [];
+    if (!Number.isSafeInteger(pollId) || pollId <= 0 || !optionIds.length) return json({ error: "Ungültige Abstimmung." }, 400);
+    const serviceUrl = Deno.env.get("SUPABASE_URL") ?? "", serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!serviceUrl || !serviceKey) return json({ error: "Supabase-Service ist nicht konfiguriert." }, 503);
+    const service = createClient(serviceUrl, serviceKey);
+    const [{ data: poll }, { data: options }, { data: votes }] = await Promise.all([
+      service.from("polls").select("id,question").eq("id", pollId).maybeSingle(),
+      service.from("poll_options").select("id,label").eq("poll_id", pollId).in("id", optionIds),
+      service.from("poll_votes").select("visitor_token").eq("poll_id", pollId),
+    ]);
+    if (!poll) return json({ error: "Abstimmung nicht gefunden." }, 404);
+    const selected = (options || []).map((option) => `• ${clean(option.label, 160)}`).join("\n");
+    const participants = new Set((votes || []).map((vote) => vote.visitor_token)).size;
+    const time = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
+    const result = await sendTelegram(`🗳️ Neue Abstimmung\n\n❓ ${clean(poll.question, 300)}\n✅ Gewählt:\n${selected}\n\n👥 Teilnehmer bisher: ${participants}\n🕒 ${time}`, "dolly");
     return json(result, result.status);
   }
   if (type !== "visit" && type !== "click" && type !== "contact") return json({ error: "Unbekannter Benachrichtigungstyp." }, 400);
