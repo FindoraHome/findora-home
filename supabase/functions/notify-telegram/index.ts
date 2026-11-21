@@ -105,6 +105,14 @@ Deno.serve(async (request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (!serviceUrl || !serviceKey) return json({ error: "Supabase-Service ist nicht konfiguriert." }, 503);
   const service = createClient(serviceUrl, serviceKey);
+  if (type === "visit" || type === "click") {
+    const { data: vacationSetting } = await service.from("site_settings").select("value").eq("key", "vacation_mode").maybeSingle();
+    const vacation = (vacationSetting?.value || {}) as Record<string, unknown>;
+    const berlinDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
+    const vacationActive = vacation.enabled === true && typeof vacation.start_date === "string" && typeof vacation.end_date === "string" && berlinDate >= vacation.start_date && berlinDate <= vacation.end_date;
+    const shouldPause = type === "visit" ? vacation.pause_visit_notifications !== false : vacation.pause_click_notifications !== false;
+    if (vacationActive && shouldPause) return json({ ok: true, suppressed: true, reason: "vacation_mode" });
+  }
   const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
   const ipHash = await hashIp(clientIp);
   const windowStart = new Date(Date.now() - 10 * 60 * 1000).toISOString();
