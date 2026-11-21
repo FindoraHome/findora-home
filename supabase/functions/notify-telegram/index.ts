@@ -24,8 +24,8 @@ async function isAdmin(request: Request) {
 }
 
 async function sendTelegram(text: string, bot = "main") {
-  const token = Deno.env.get(bot === "dolly" ? "DOLLY_TELEGRAM_BOT_TOKEN" : "TELEGRAM_BOT_TOKEN");
-  const chatId = Deno.env.get(bot === "dolly" ? "DOLLY_TELEGRAM_CHAT_ID" : "TELEGRAM_CHAT_ID");
+  const token = bot === "dolly" ? (Deno.env.get("DOLLY_TELEGRAM_BOT_TOKEN") || Deno.env.get("TELEGRAM_BOT_TOKEN")) : Deno.env.get("TELEGRAM_BOT_TOKEN");
+  const chatId = bot === "dolly" ? (Deno.env.get("DOLLY_TELEGRAM_CHAT_ID") || Deno.env.get("TELEGRAM_CHAT_ID")) : Deno.env.get("TELEGRAM_CHAT_ID");
   if (!token || !chatId) return { ok: false, status: 503, error: "TELEGRAM_BOT_TOKEN oder TELEGRAM_CHAT_ID fehlt." };
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
