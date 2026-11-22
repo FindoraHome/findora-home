@@ -1,4 +1,5 @@
 const day = 24 * 60 * 60 * 1000;
+const delivery = require(`${__hooks}/staging_delivery.js`);
 
 function pollOptions(record) {
     return JSON.parse(record.getString("options"));
@@ -151,14 +152,15 @@ function visitor(e) {
         ballot.set("choices", choices);
         app.save(ballot);
         const selected = pollOptions(poll).filter(option => choices.includes(option.id)).map(option => `• ${option.label}`);
-        notice = `Neue Abstimmung\n\n${poll.getString("question")}\n\n${selected.join("\n")}`;
+        const participants = participantCount(poll, ballots(app, poll.id));
+        notice = `🗳️ Neue Abstimmung\n\n❓ ${poll.getString("question")}\n✅ Gewählt:\n${selected.join("\n")}\n\n👥 Teilnehmer bisher: ${participants}\n🕒 ${delivery.telegramTime()}`;
         const goal = poll.getInt("participant_goal");
-        if (goal && participantCount(poll, ballots(app, poll.id)) >= goal) {
+        if (goal && participants >= goal) {
             endPoll(poll);
             app.save(poll);
         }
     });
-    require(`${__hooks}/staging_delivery.js`).enqueue(e.app, "dolly", notice, "", $security.sha256(e.realIP()));
+    delivery.enqueue(e.app, "dolly", notice, "", $security.sha256(e.realIP()));
     return e.json(200, { data: null });
 }
 
@@ -166,12 +168,11 @@ function queueResults(app) {
     if (!$os.getenv("FINDORA_STAGING_DOLLY_TELEGRAM_BOT_TOKEN")) return;
     const scope = $os.getenv("FINDORA_SITE_MODE") === "production" ? "" : "legacy_id = '' && ";
     const records = app.findRecordsByFilter("staging_polls", `${scope}(active = false || ends_at <= @now)`, "ends_at", 0, 0);
-    const delivery = require(`${__hooks}/staging_delivery.js`);
     for (const record of records) {
         const poll = adminPoll(app, record);
-        const options = poll.options.map(option => `• ${option.label}: ${option.votes}`);
-        delivery.enqueue(app, "dolly", `Abstimmung beendet\n\n${poll.question}\n\n${options.join("\n")}\n\nTeilnehmer: ${poll.total_votes}`,
-            `poll-result:${poll.id}:${poll.ends_at}`);
+        const options = poll.options.map(option => `• ${option.label}: ${option.votes} Stimmen`);
+        const result = `📊 Abstimmung beendet\n\n❓ ${poll.question}\n\n${options.join("\n") || "Keine Stimmen abgegeben."}\n\n👥 Teilnehmer: ${poll.total_votes}\n🕒 Ende: ${delivery.telegramTime(poll.ends_at)}`;
+        delivery.enqueue(app, "dolly", result, `poll-result:${poll.id}:${poll.ends_at}`);
     }
 }
 

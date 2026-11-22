@@ -2,6 +2,14 @@ const deliveries = "staging_deliveries";
 const env = name => $os.getenv(`FINDORA_STAGING_${name}`);
 const siteName = () => $os.getenv("FINDORA_SITE_MODE") === "production" ? "Findora Home" : "Findora-Vorschau";
 
+function berlinTime(value) {
+    return new DateTime(value).time().in(new Timezone("Europe/Berlin"));
+}
+
+function telegramTime(value = new Date().toISOString()) {
+    return berlinTime(value).format("02.01.06, 15:04");
+}
+
 function settings(bot) {
     const prefix = bot === "dolly" ? "DOLLY_TELEGRAM_" : "TELEGRAM_";
     const token = env(`${prefix}BOT_TOKEN`);
@@ -26,7 +34,8 @@ function telegram(bot, method, input) {
 
 function send(bot, text) {
     const config = settings(bot);
-    telegram(bot, "sendMessage", { chat_id: config?.chat, text: `${siteName()}\n\n${Array.from(text).slice(0, 3700).join("")}`,
+    const heading = bot === "main" ? `🔔 ${siteName()}\n\n` : "";
+    telegram(bot, "sendMessage", { chat_id: config?.chat, text: heading + Array.from(text).slice(0, 3700).join(""),
         disable_web_page_preview: true });
 }
 
@@ -88,9 +97,12 @@ function admin(e) {
     const input = e.requestInfo().body;
     const action = e.request.pathValue("action");
     if (action === "notify-telegram") {
-        if (input.type === "test") send("dolly", "Dolly-Telegram-Verbindung funktioniert.");
+        if (input.type === "test") send("dolly", "✅ Dolly\n\nDolly-Telegram-Verbindung funktioniert.");
         else if (input.type === "amazon_report" && typeof input.items === "string") {
-            send("dolly", `Amazon PartnerNet\n\n${Number(input.count) || 0} neue bestellte Artikel\n\n${input.items}`);
+            const count = Math.max(1, Math.min(9999, Number(input.count) || 1));
+            const items = Array.from(input.items.trim()).slice(0, 3000).join("");
+            if (!items) throw new BadRequestError("Keine Bestellungen übergeben.");
+            send("dolly", `🛒 Amazon PartnerNet\n\n${count} neue bestellte Artikel erkannt\n\n${items}\n\n🕒 Importiert: ${telegramTime()}`);
         } else throw new BadRequestError("Unbekannter Benachrichtigungstyp.");
         return e.json(200, { data: { ok: true } });
     }
@@ -113,4 +125,4 @@ function admin(e) {
     return e.json(200, { data: { chats: [...chats.values()] } });
 }
 
-module.exports = { admin, email, enqueue, flush };
+module.exports = { admin, berlinTime, email, enqueue, flush, telegramTime };

@@ -2,6 +2,7 @@ const events = "staging_site_events";
 const settings = "staging_site_settings";
 const messages = "staging_contact_messages";
 const reports = "staging_amazon_reports";
+const delivery = require(`${__hooks}/staging_delivery.js`);
 
 function first(app, table, expression, args) {
     return app.findRecordsByFilter(table, expression, "", 1, 0, args)[0];
@@ -28,16 +29,7 @@ function now() { return new Date().toISOString(); }
 function dateValue(record, name) { return record.getString(name).replace(" ", "T"); }
 
 function berlinDate(value) {
-    // PocketBase's JavaScript runtime does not bundle Intl. Berlin's offset
-    // changes at 01:00 UTC on the last Sundays in March and October.
-    const instant = new Date(value);
-    const year = instant.getUTCFullYear();
-    const transition = month => {
-        const last = new Date(Date.UTC(year, month + 1, 0, 1));
-        return last.getTime() - last.getUTCDay() * 86400000;
-    };
-    const offset = instant >= transition(2) && instant < transition(9) ? 2 : 1;
-    return new Date(instant.getTime() + offset * 3600000).toISOString().slice(0, 10);
+    return delivery.berlinTime(new Date(value).toISOString()).format("2006-01-02");
 }
 
 function vacation(app) {
@@ -126,13 +118,14 @@ function sendContact(e, input) {
             { sender: payload.sender, cutoff }).length >= 6) throw new ApiError(429, "Bitte versuche es später erneut.");
         write(tx, messages, payload);
     });
-    const delivery = require(`${__hooks}/staging_delivery.js`);
-    delivery.enqueue(app, "main", `Neue Nachricht\n\n${payload.topic}\n${payload.message}\n\n${payload.name}\n${payload.email}`, "", payload.sender);
+    const message = Array.from(payload.message).slice(0, 3000).join("");
+    const notice = `✉️ Neue Nachricht\n📌 Thema: ${payload.topic}\n👤 Name: ${payload.name || "Nicht angegeben"}\n📧 E-Mail: ${payload.email || "Nicht angegeben"}\n\n${message}\n🕒 ${delivery.telegramTime(payload.created_at)}`;
+    delivery.enqueue(app, "main", notice, "", payload.sender);
     return { saved: true, mail_sent: delivery.email(app, payload) };
 }
 
-function event(app, action, input) {
-    const value = { occurred_at: now() };
+function event(app, action, input, occurredAt) {
+    const value = { occurred_at: occurredAt };
     switch (action) {
         case "record_page_view":
             value.kind = "visit";
@@ -160,6 +153,25 @@ function event(app, action, input) {
     return added;
 }
 
+function trafficNotice(app, click, productId, occurredAt) {
+    const time = delivery.telegramTime(occurredAt);
+    if (click) {
+        const product = first(app, "products", "legacy_id = {:id}", { id: productId });
+        const name = Array.from(product?.getString("name") || "Unbekannt").slice(0, 160).join("");
+        const productClicks = app.countRecords(events, $dbx.hashExp({ kind: "click", product: productId }));
+        const totalClicks = app.countRecords(events, $dbx.hashExp({ kind: "click" }));
+        return `🛒 Produkt angeklickt\n📦 ${name}\n📊 Klicks für dieses Produkt: ${productClicks}\n📈 Klicks insgesamt: ${totalClicks}\n🕒 ${time}`;
+    }
+    const date = berlinDate(occurredAt);
+    // Berlin's clock changes after midnight. Use the offset at the start of this date.
+    const offset = delivery.berlinTime(`${date}T00:00:00Z`).format("-07:00");
+    const since = new DateTime(`${date}T00:00:00${offset}`).string();
+    const visits = $dbx.hashExp({ kind: "visit" });
+    const total = app.countRecords(events, visits);
+    const today = app.countRecords(events, visits, $dbx.exp("occurred_at >= {:since}", { since }));
+    return `👀 Neue Seitenansicht\n📊 Seitenbesuche gesamt: ${total}\n📅 Heute: ${today}\n🕒 ${time}`;
+}
+
 function toggleLike(app, input) {
     const product = productKey(app, input.p_product_id);
     const visitor = visitorKey(input.p_visitor_token);
@@ -185,17 +197,18 @@ function visitor(e) {
         case "submit_contact": data = sendContact(e, input); break;
         case "public_counts": data = publicCounts(app); break;
         case "toggle_product_like": data = toggleLike(app, input); break;
-        default:
-            data = event(app, action, input);
+        default: {
+            const occurredAt = now();
+            data = event(app, action, input, occurredAt);
             if (data && (action === "record_page_view" || action === "record_product_click")) {
                 const mode = vacation(app);
                 const click = action === "record_product_click";
                 if (!mode.active || mode[click ? "pause_click_notifications" : "pause_visit_notifications"] === false) {
-                    const product = click ? first(app, "products", "legacy_id = {:id}", { id: String(input.p_product_id) }) : null;
-                    const label = click ? `Produkt angeklickt: ${product?.getString("name") || "Produkt"}` : "Neue Seitenansicht";
-                    require(`${__hooks}/staging_delivery.js`).enqueue(app, "main", label, "", $security.sha256(e.realIP()));
+                    const notice = trafficNotice(app, click, String(input.p_product_id), occurredAt);
+                    delivery.enqueue(app, "main", notice, "", $security.sha256(e.realIP()));
                 }
             }
+        }
     }
     return e.json(200, { data });
 }
