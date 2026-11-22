@@ -1,0 +1,21 @@
+[Unit]
+Description=Findora Home production PocketBase
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=findoraprod
+Group=findoraprod
+StateDirectory=findora-pocketbase-production
+StateDirectoryMode=0750
+Environment=FINDORA_SITE_MODE=production
+EnvironmentFile=/etc/findora-pocketbase-production/site.env
+ExecStart=/opt/findora-pocketbase/0.40.6/pocketbase serve --http=127.0.0.1:8091 --origins=${FINDORA_PUBLIC_ORIGIN} --dir=/var/lib/findora-pocketbase-production/pb_data --migrationsDir=/etc/findora-pocketbase-production/migrations --hooksDir=/etc/findora-pocketbase-production/hooks --encryptionEnv=FINDORA_PRODUCTION_SETTINGS_KEY --automigrate=false
+Restart=on-failure
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target

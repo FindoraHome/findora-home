@@ -1,0 +1,22 @@
+[Unit]
+Description=Findora staging Telegram and Instagram integrations
+After=network-online.target findora-pocketbase.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=findorapb
+Group=findorapb
+Environment=TZ=Europe/Berlin
+EnvironmentFile=/etc/findora-pocketbase/staging-worker.env
+EnvironmentFile=-/etc/findora-pocketbase/staging-integrations.env
+ExecStart=/opt/findora-integrations/findora-staging-integrations
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

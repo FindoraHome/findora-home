@@ -1,0 +1,6 @@
+[hidden] { display: none !important; }
+.header-search, .category-nav-wrap, .header-products-link,
+.favorites-toggle, .header-ornament, .app-install-button[hidden] { display: none !important; }
+.staging-scope { margin: 0 0 14px; }
+.admin-panel button:disabled { cursor: not-allowed; opacity: .55; }
+.admin-panel :is(#admin-product-form, #admin-own-product-form) { scroll-margin-top: 5rem; }
