@@ -29,8 +29,9 @@ def shared_template(html, page, origin=None):
     html = replace(html, r"</head>", '<link rel="stylesheet" href="staging-preview.css">\n'
                     '<script src="staging-catalog.js"></script>\n'
                     '<script src="site.js"></script>\n</head>', "document head")
+    notice = "Katalogvorschau aus PocketBase · PayPal Sandbox" if page == "produkte" else "Katalogvorschau aus PocketBase"
     return replace(html, r"<body[^>]*>", '<body>\n<div class="staging-notice">'
-                   'Katalogvorschau aus PocketBase · Bestellungen auf der Live-Seite'
+                   + notice +
                    ' <a href="admin.html">Verwaltung</a></div>', "document body")
 
 
@@ -103,46 +104,57 @@ def disney(html):
     return replace(html, r"^    async function load\([^\n]+$", boot, "Disney catalog loader", re.M)
 
 
-def digital(html):
-    renderer = re.search(r'^[ \t]+function render\(\)\{.*?(?=^[ \t]+search\.addEventListener)', html, re.M | re.S)
-    if not renderer:
-        raise ValueError("Digital product renderer was not found.")
-    renderer = replace(renderer[0], r"updateProductSchema\(items\); ", "", "digital product schema update")
-    renderer = replace(renderer, r'^[ \t]+if\(item\.price != null && Number\(item\.price\) > 0\)[^\n]+$', '''           if (item.price > 0 && !item.staging_only) {
-             const buy = document.createElement("a");
-             buy.className = "buy";
-             buy.href = "https://findorahome.github.io/findora-home/produkte.html#produkt-" + encodeURIComponent(item.id);
-             buy.textContent = "Auf der Live-Seite ansehen →";
-             body.appendChild(buy);
-           }''', "digital product checkout controls", re.M)
-    script = '''<script>
-    (() => {
-      const box = document.getElementById("products"), search = document.getElementById("search");
-      const euro = value => Number(value).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-      let products = [];
-''' + renderer + '''      search.addEventListener("input", render);
-      window.FindoraStagingCatalog.digital().then(items => {
-        products = items;
-        render();
-        document.documentElement.dataset.catalogSource = "pocketbase";
-      }).catch(error => {
-        console.error(error);
-        box.textContent = "Findora-Produkte konnten nicht aus PocketBase geladen werden.";
-      });
-    })();
-  </script>'''
-    return replace(html, r"<script>\s*\(function\(\)\{.*?</script>", script, "digital product startup", re.S)
-
-
-def digital_checkout(html):
-    # Keep the original cart and PayPal handlers. Only the price and eligibility
-    # lookup remain in Supabase with the order and download APIs.
+def digital_checkout(html, sandbox=False):
+    # Both builds use the existing cart and PayPal handlers.
     html = replace(html, r'^    <section id="own-admin-manage"[^\n]+\n', "", "Supabase product admin markup", re.M)
     html = replace(html, r'^      const adminLogin = .*?(?=^      async function loadPublicProducts\()', "",
                    "Supabase product admin script", re.M | re.S)
     html = html.replace('href="index.html#admin-panel"', 'href="admin.html"')
     html = replace(html, r'<button id="products-admin-logout"[^<]+</button>', "", "Supabase sign-out button")
     client_pattern = r'^      const client = window\.supabase\.createClient\([^\n]+\);$'
+    if sandbox:
+        html = replace(html, r"</head>", '<script src="checkout.js"></script>\n</head>', "sandbox script")
+        html = replace(html, r'^      const SUPABASE_URL = [^\n]+\n', "", "Supabase URL", re.M)
+        html = replace(html, client_pattern, "      const client = window.FindoraSandboxCheckout;", "sandbox client", re.M)
+        html = replace(html, r'^      async function renderPaypal\(.*?(?=^      async function openRecordedDownload)',
+                       "", "unused product checkout", re.M | re.S)
+        html = replace(html, r'fetch\(SUPABASE_URL \+ "/functions/v1/paypal-config"\)\.then\(response => response\.ok \? response\.json\(\) : null\)',
+                       "client.config()", "sandbox configuration")
+        html = replace(html, r'if\(!config\?\.configured\) return false;',
+                       'if(!config?.configured || config.environment !== "sandbox") return false;', "sandbox guard")
+        html = replace(html, r'let products = \[\];', "let products = [], sandboxReady = false;", "sandbox state")
+        html = replace(html, r'if\(item\.price != null && Number\(item\.price\) > 0\)\{ const add',
+                       "if(sandboxReady && Number(item.price) > 0){ const add", "sandbox checkout availability")
+        html = replace(html, r'status\.textContent = "Preis folgt";',
+                       'status.textContent = item.price > 0 ? "PayPal Sandbox ist noch nicht eingerichtet." : "Preis folgt";',
+                       "sandbox checkout status")
+        html = replace(html, r'window\.open\(result\.data\.download_url, "_blank", "noopener"\);',
+                       'const link = document.createElement("a"); link.href = result.data.download_url; '
+                       'link.download = result.data.file_name; link.click();', "private sandbox download")
+        # A receipt replaces the cart; restore the original cart for a new purchase.
+        html = replace(html, r'^      const cart = new Map\(\);$',
+                       '      const cart = new Map(), cartMarkup = document.getElementById("cart").innerHTML;',
+                       "cart markup", re.M)
+        html = replace(html, r'cart\.set\(item\.id, item\);',
+                       'if(!document.getElementById("cart-items")) document.getElementById("cart").innerHTML = cartMarkup; '
+                       'cart.set(item.id, item);', "restore cart after payment")
+        html = replace(html, r'document\.getElementById\("cart-clear"\)\.addEventListener\("click", \(\) => \{ cart\.clear\(\); void renderCart\(\); \}\);',
+                       'document.getElementById("cart").addEventListener("click", event => { '
+                       'if(event.target.id === "cart-clear"){ cart.clear(); void renderCart(); } });', "cart clear event")
+        loader = '''      async function loadPublicProducts(){
+        try {
+          const [catalog, config] = await Promise.all([window.FindoraStagingCatalog.digital(), client.config()]);
+          products = catalog;
+          sandboxReady = config?.configured === true && config.environment === "sandbox";
+          render();
+          document.documentElement.dataset.catalogSource = "pocketbase";
+        } catch (error) {
+          console.error(error);
+          box.innerHTML = '<div class="error">Die eigenen Produkte konnten gerade nicht geladen werden.</div>';
+        }
+      }'''
+        return replace(html, r'^      async function loadPublicProducts\([^\n]+$', loader, "digital checkout catalog", re.M)
+
     client = template_section(html, client_pattern, "checkout client").removesuffix(");")
     html = replace(html, client_pattern, client + ", { auth: { persistSession: false, detectSessionInUrl: false } });",
                    "checkout client", re.M)
@@ -292,11 +304,13 @@ def build_admin_app(source, destination, origin=None):
 
 def build(destination, origin=None):
     destination.mkdir(parents=True, exist_ok=True)
-    for name, adapt in (("index", home), ("disney", disney), ("produkte", digital_checkout if origin else digital)):
+    for name, adapt in (("index", home), ("disney", disney), ("produkte", lambda html: digital_checkout(html, sandbox=not origin))):
         source = (ROOT / f"{name}.html").read_text(encoding="utf-8")
         (destination / f"{name}.html").write_text(adapt(shared_template(source, name, origin)), encoding="utf-8")
     shutil.copyfile(STAGING / "catalog.js", destination / "staging-catalog.js")
     shutil.copyfile(STAGING / "preview.css", destination / "staging-preview.css")
+    if not origin:
+        shutil.copyfile(STAGING / "checkout.js", destination / "checkout.js")
     homepage = (ROOT / "index.html").read_text(encoding="utf-8")
     build_admin(homepage, destination, origin)
     build_admin_app(homepage, destination, origin)
@@ -312,6 +326,7 @@ def build(destination, origin=None):
 
 def production_caddy(destination, host):
     staging = (STAGING / "Caddyfile").read_text(encoding="utf-8")
+    staging = re.sub(r"\n\s*# Sandbox checkout routes\n.*?\n\s*# End sandbox checkout routes\n", "\n", staging, flags=re.S)
     routes = template_section(staging, r"(^\s*@catalog \{.*?^\s*handle /api/\* \{\s*respond 404\s*\})",
                               "PocketBase proxy routes").strip("\n")
     checkout = (ROOT / "produkte.html").read_text(encoding="utf-8")

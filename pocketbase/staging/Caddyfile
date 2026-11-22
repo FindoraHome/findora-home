@@ -7,11 +7,17 @@ http://127.0.0.1:8100 {
 	bind 127.0.0.1
 	header {
 		>Cache-Control "no-store"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
 		Referrer-Policy "no-referrer"
 		X-Content-Type-Options "nosniff"
 		X-Robots-Tag "noindex, nofollow"
 	}
+	@checkout path /produkte.html
+	header @checkout {
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.paypal.com https://*.paypalobjects.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.paypal.com https://*.paypalobjects.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.paypal.com https://*.paypalobjects.com; connect-src 'self' https://*.paypal.com https://*.paypalobjects.com; frame-src 'self' https://*.paypal.com https://*.paypalobjects.com; base-uri 'none'; frame-ancestors 'none'"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+	@site not path /produkte.html
+	header @site Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
 
 	@catalog {
 		method GET HEAD
@@ -44,6 +50,23 @@ http://127.0.0.1:8100 {
 			header_up -Cookie
 		}
 	}
+
+	# Sandbox checkout routes
+	@sandboxConfig {
+		method GET
+		path /api/findora/sandbox-checkout/paypal-config /api/findora/sandbox-checkout/download/*
+	}
+	handle @sandboxConfig {
+		reverse_proxy 127.0.0.1:8090
+	}
+	@sandboxOrders {
+		method POST
+		path /api/findora/sandbox-checkout/paypal-create-order /api/findora/sandbox-checkout/paypal-capture-order /api/findora/sandbox-checkout/record-download
+	}
+	handle @sandboxOrders {
+		reverse_proxy 127.0.0.1:8090
+	}
+	# End sandbox checkout routes
 
 	handle /api/* {
 		respond 404
