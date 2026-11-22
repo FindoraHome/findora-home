@@ -17,19 +17,13 @@
         return items;
     }
 
-    function imageUrl(collection, record) {
-        return record.image
-            ? `/api/files/${collection}/${encodeURIComponent(record.id)}/${encodeURIComponent(record.image)}`
-            : "";
-    }
-
     function product(record) {
         const { legacy_id, name, description, link, category, active, created_at, partner, featured, is_disney } = record;
         return {
             id: legacy_id, name, description, category, active, partner, featured, is_disney,
             created_at: created_at.replace(" ", "T"),
             link: /^https?:\/\//i.test(link) ? link : "",
-            image_url: imageUrl("products", record),
+            image_url: window.FindoraStagingSite.fileUrl("products", record),
         };
     }
 
@@ -54,7 +48,7 @@
                 description: record.description,
                 price: record.price_cents == null ? null : record.price_cents / 100,
                 staging_only: record.staging_only === true,
-                image_url: imageUrl("own_products", record),
+                image_url: window.FindoraStagingSite.fileUrl("own_products", record),
             }));
         },
     };

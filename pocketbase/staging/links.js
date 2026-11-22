@@ -1,28 +1,18 @@
-    const endpoint = "/api/findora/staging-admin";
-    const tokenKey = "findora-staging-admin";
-
-    async function request(url, options = {}) {
-      const headers = new Headers(options.headers);
-      headers.set("Authorization", sessionStorage.getItem(tokenKey) || "");
-      const response = await fetch(url, { ...options, headers });
-      const result = await response.json();
-      if (response.status === 401) logout();
-      if (!response.ok) throw new Error(result.message || "Die Linkverwaltung ist gerade nicht erreichbar.");
-      return result;
-    }
+    const api = window.FindoraStagingSite;
+    const { adminRequest: request } = api;
+    window.addEventListener("findora-session-expired", logout);
 
     function logout() {
-      sessionStorage.removeItem(tokenKey);
-      sessionStorage.removeItem(`${tokenKey}-email`);
+      api.clearSession();
       location.replace("admin.html");
     }
 
     async function boot() {
-      if (!sessionStorage.getItem(tokenKey)) return logout();
+      if (!api.token()) return logout();
       try {
-        const result = await request(`${endpoint}/links`);
+        const result = await request("links");
         products = result.data.map(product => ({ ...product, recordId: product.id, id: Number(product.legacy_id),
-          image_url: product.image ? `/api/files/products/${product.id}/${encodeURIComponent(product.image)}` : "",
+          image_url: api.fileUrl("products", product),
         })).sort((a, b) => (a.name || "").localeCompare(b.name || "", "de"));
         render();
       } catch (error) {
@@ -33,14 +23,10 @@
     async function saveProductRow(product, fields, button) {
       button.disabled = true;
       try {
-        const payload = { ...product, name: fields.name.value, link: fields.affiliate.value, normal_link: fields.normal.value };
-        const image = fields.imageInput.files[0];
-        const body = new FormData();
-        body.set("payload", JSON.stringify({ ...payload, replace_image: Boolean(image) }));
-        if (image) body.set("image", await optimizeImage(image));
-        await request(`${endpoint}/products/products/${product.recordId}`, { method: "POST", body });
+        const changes = { name: fields.name.value, link: fields.affiliate.value, normal_link: fields.normal.value };
+        await api.saveProduct("products", { ...product, id: product.recordId }, changes, fields.imageInput.files[0]);
         await boot();
-        showNotice(`„${payload.name}“ wurde gespeichert.`);
+        showNotice(`„${changes.name}“ wurde gespeichert.`);
       } catch (error) {
         showNotice(error.message, "error");
       } finally {
@@ -52,7 +38,7 @@
       if (!confirm(`Produkt „${product.name}“ wirklich vollständig löschen?`)) return;
       button.disabled = true;
       try {
-        await request(`${endpoint}/products/products/${product.recordId}`, { method: "DELETE" });
+        await request(api.productPath("products", product.recordId), { method: "DELETE" });
         await boot();
         showNotice("Produkt wurde gelöscht.");
       } catch (error) {
@@ -64,9 +50,7 @@
 
     async function bulkLinks(updates) {
       try {
-        return await request(`${endpoint}/links`, { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ p_updates: updates }),
-        });
+        return await request("links", api.json({ p_updates: updates }));
       } catch (error) {
         return { error };
       }

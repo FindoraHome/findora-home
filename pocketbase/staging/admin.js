@@ -1,10 +1,8 @@
   const el = id => document.getElementById(id);
   const admin = { products: [], ownProducts: [], categories: [], partners: [], polls: [], likeCounts: {}, clickCounts: {}, isAdmin: false };
-  const client = window.FindoraStagingSite.admin;
+  const api = window.FindoraStagingSite;
+  const { admin: client, adminRequest: request, adminPolls: pollRpc, productPath, saveProduct: writeProduct } = api;
   let linkCheckPromise = null;
-  const endpoint = "/api/findora/staging-admin";
-  const tokenKey = "findora-staging-admin";
-  const emailKey = `${tokenKey}-email`;
   const loginForm = el("login-form");
   const panel = el("admin-panel");
   const affiliate = {
@@ -15,13 +13,12 @@
     collection: "own_products", form: el("admin-own-product-form"), button: el("admin-own-save"),
     fill: fillEditOwnProduct, reset: resetOwnProductForm, input: name => el(`admin-own-${name}`),
   };
-  let token = sessionStorage.getItem(tokenKey) || "";
+  let token = api.token();
 
   function showLogin(message = "") {
     token = "";
     admin.isAdmin = false;
-    sessionStorage.removeItem(tokenKey);
-    sessionStorage.removeItem(emailKey);
+    api.clearSession();
     panel.classList.remove("open");
     el("admin-logout-button").hidden = true;
     el("admin-login-button").hidden = false;
@@ -51,22 +48,8 @@
     el("login-email").focus();
   }
 
-  async function request(url, options = {}) {
-    const currentToken = token;
-    const headers = new Headers(options.headers);
-    if (currentToken) headers.set("Authorization", currentToken);
-    const response = await fetch(url, { ...options, headers });
-    const result = await response.json();
-    if (!response.ok) {
-      if (response.status === 401 && token === currentToken && currentToken) showLogin("Bitte melde dich erneut an.");
-      throw new Error(result.message || "Die Anfrage konnte nicht abgeschlossen werden.");
-    }
-    return result;
-  }
-
   function viewProduct(product, collection) {
-    const image = product.image ? `/api/files/${collection}/${encodeURIComponent(product.id)}/${encodeURIComponent(product.image)}` : "";
-    return { ...product, image_url: image, price: product.price_cents == null ? null : product.price_cents / 100,
+    return { ...product, image_url: api.fileUrl(collection, product), price: product.price_cents == null ? null : product.price_cents / 100,
       file_name: product.download_name, file_path: product.has_download || Boolean(product.download_name) };
   }
 
@@ -78,7 +61,7 @@
 
   async function loadAdminData() {
     const currentToken = token;
-    const data = await request(`${endpoint}/catalog`);
+    const data = await request("catalog");
     if (currentToken !== token) return;
     const products = data.products.map(product => viewProduct(product, product.collection));
     admin.products = products.filter(product => product.collection === "products");
@@ -93,7 +76,7 @@
     renderAdminPartners();
     fillCategorySelect();
     fillPartnerSelect();
-    el("admin-email").textContent = sessionStorage.getItem(emailKey) || "";
+    el("admin-email").textContent = api.sessionEmail();
     el("login-backdrop").classList.remove("open");
     el("admin-login-button").hidden = true;
     el("admin-logout-button").hidden = false;
@@ -117,17 +100,6 @@
     }
   }
 
-  async function pollRpc(action, input) {
-    const session = token;
-    const result = await window.FindoraStagingPollRpc("staging-admin/polls", action, input, session);
-    if (result.status === 401 && session === token) showLogin("Bitte melde dich erneut an.");
-    return result;
-  }
-
-  function productUrl(collection, id) {
-    return `${endpoint}/products/${collection}/${encodeURIComponent(id)}`;
-  }
-
   function clearEditor(editor) {
     editor.product = null;
     editor.selection = null;
@@ -148,7 +120,7 @@
     editor.selection = selection;
     clearNotice();
     try {
-      const product = await request(productUrl(editor.collection, id));
+      const product = await request(productPath(editor.collection, id));
       if (editor.selection !== selection) return;
       showProduct(editor, product);
       editor.form.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -161,19 +133,10 @@
   function editProduct(product) { return openProduct(affiliate, product.id); }
   function editOwnProduct(product) { return openProduct(digital, product.id); }
 
-  async function writeProduct(collection, product, changes, image, documentFile) {
-    const payload = { ...product, ...changes, replace_image: Boolean(image), replace_document: Boolean(documentFile) };
-    const body = new FormData();
-    body.set("payload", JSON.stringify(payload));
-    if (image) body.set("image", await optimizeImage(image));
-    if (documentFile) body.set("document", documentFile);
-    return request(productUrl(collection, product.id), { method: "POST", body });
-  }
-
   async function updateProduct(product, collection, changes, message) {
     clearNotice();
     try {
-      const current = await request(productUrl(collection, product.id));
+      const current = await request(productPath(collection, product.id));
       await writeProduct(collection, current, changes(current));
       await loadAdminData();
       notice(message, "success");
@@ -203,13 +166,13 @@
   }
 
   function duplicateProduct(product) {
-    return catalogAction(() => request(`${endpoint}/duplicate/${product.id}`, { method: "POST" }), "Produkt wurde dupliziert.");
+    return catalogAction(() => request(`duplicate/${product.id}`, { method: "POST" }), "Produkt wurde dupliziert.");
   }
 
   function deleteProduct(product, editor = affiliate) {
     if (!confirm(`Produkt „${product.name}“ wirklich vollständig löschen?`)) return;
     return catalogAction(async () => {
-      await request(productUrl(editor.collection, product.id), { method: "DELETE" });
+      await request(productPath(editor.collection, product.id), { method: "DELETE" });
       if (editor.product?.id === product.id) clearEditor(editor);
     }, "Produkt wurde gelöscht.");
   }
@@ -217,9 +180,7 @@
   function deleteOwnProduct(product) { return deleteProduct(product, digital); }
 
   function taxonomy(collection, data) {
-    return request(`${endpoint}/taxonomy/${collection}`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    });
+    return request(`taxonomy/${collection}`, api.json(data));
   }
 
   function deleteTaxonomy(collection, item) {
@@ -343,13 +304,7 @@
     const email = el("login-email").value.trim();
     button.disabled = true;
     try {
-      const result = await request("/api/collections/findora_admins/auth-with-password", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity: email, password: el("login-password").value }),
-      });
-      token = result.token;
-      sessionStorage.setItem(tokenKey, token);
-      sessionStorage.setItem(emailKey, email);
+      token = await api.signIn(email, el("login-password").value);
       localStorage.setItem("findora-admin-device", "1");
       loginForm.reset();
       await loadAdminData();
@@ -362,6 +317,7 @@
 
   function startAdmin() {
     configurePreview();
+    window.addEventListener("findora-session-expired", () => showLogin("Bitte melde dich erneut an."));
     loginForm.onsubmit = signIn;
     el("login-close").onclick = () => { location.href = "index.html"; };
     el("admin-login-button").onclick = () => showLogin();

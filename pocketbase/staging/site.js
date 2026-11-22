@@ -1,7 +1,43 @@
 (() => {
-    const publicRpc = (action, input) => window.FindoraStagingPollRpc("staging-site", action, input);
-    const adminRpc = (action, input) => window.FindoraStagingPollRpc("staging-admin/site", action, input,
-        sessionStorage.getItem("findora-staging-admin") || "");
+    const tokenKey = "findora-staging-admin";
+    const token = () => sessionStorage.getItem(tokenKey) || "";
+    const sessionEmail = () => sessionStorage.getItem(`${tokenKey}-email`) || "";
+    const json = payload => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    /* product image optimization */
+
+    async function request(path, options = {}, admin = false) {
+        const session = admin ? token() : "";
+        const headers = new Headers(options.headers);
+        if (session) headers.set("Authorization", session);
+        const response = await fetch(path, { ...options, headers });
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 401 && session && session === token()) window.dispatchEvent(new Event("findora-session-expired"));
+        if (!response.ok) throw new Error(result.message || "Die Anfrage konnte nicht abgeschlossen werden.");
+        return result;
+    }
+
+    async function rpc(scope, action, input = {}, admin = false) {
+        try {
+            return await request(`/api/findora/${scope}/${action}`, json(input), admin);
+        } catch (error) {
+            return { error };
+        }
+    }
+
+    const publicRpc = (action, input) => rpc("staging-site", action, input);
+    const adminRpc = (action, input) => rpc("staging-admin/site", action, input, true);
+    const adminRequest = (path, options) => request(`/api/findora/staging-admin/${path}`, options, true);
+    const productPath = (collection, id) => `products/${collection}/${encodeURIComponent(id)}`;
+    const fileUrl = (collection, record) => record.image
+        ? `/api/files/${collection}/${encodeURIComponent(record.id)}/${encodeURIComponent(record.image)}` : "";
+
+    async function saveProduct(collection, product, changes, image, documentFile) {
+        const body = new FormData();
+        body.set("payload", JSON.stringify({ ...product, ...changes, replace_image: Boolean(image), replace_document: Boolean(documentFile) }));
+        if (image) body.set("image", await optimizeImage(image));
+        if (documentFile) body.set("document", documentFile);
+        return adminRequest(productPath(collection, product.id), { method: "POST", body });
+    }
 
     const getSettings = async (key, reset = false) => {
         const result = await adminRpc("settings");
@@ -46,8 +82,7 @@
 
     async function invoke(name, { body }) {
         if (["check-product-links", "backfill-normal-links"].includes(name)) {
-            const linkRpc = input => window.FindoraStagingPollRpc("staging-admin/link-tools", name, input,
-                sessionStorage.getItem("findora-staging-admin") || "");
+            const linkRpc = input => rpc("staging-admin/link-tools", name, input, true);
             if (name === "backfill-normal-links") return linkRpc(body);
             const data = { checked: 0, ok: 0, broken: [], temporary: [], unsupported: [] };
             let offset = 0;
@@ -62,8 +97,7 @@
             return { data, error: null };
         }
         if (["notify-telegram", "telegram-setup"].includes(name) && this === window.FindoraStagingSite.admin.functions) {
-            return window.FindoraStagingPollRpc("staging-admin/delivery", name, body,
-                sessionStorage.getItem("findora-staging-admin") || "");
+            return rpc("staging-admin/delivery", name, body, true);
         }
         return Promise.resolve({ error: { message: "Diese Benachrichtigung ist in der Vorschau nicht eingerichtet." } });
     }
@@ -71,5 +105,18 @@
     window.FindoraStagingSite = {
         public: { rpc: publicRpc, from: name => from(name), functions: { invoke } },
         admin: { rpc: adminRpc, from: name => from(name, true), functions: { invoke } },
+        polls: (action, input) => rpc("staging-polls", action, input),
+        adminPolls: (action, input) => rpc("staging-admin/polls", action, input, true),
+        adminRequest, json, productPath, fileUrl, saveProduct, token, sessionEmail,
+        async signIn(email, password) {
+            const result = await request("/api/collections/findora_admins/auth-with-password", json({ identity: email, password }));
+            sessionStorage.setItem(tokenKey, result.token);
+            sessionStorage.setItem(`${tokenKey}-email`, email);
+            return result.token;
+        },
+        clearSession() {
+            sessionStorage.removeItem(tokenKey);
+            sessionStorage.removeItem(`${tokenKey}-email`);
+        },
     };
 })();

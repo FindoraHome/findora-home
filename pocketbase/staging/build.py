@@ -20,7 +20,7 @@ def shared_template(html, page):
     html = replace(html, r"<html(?=\s)", f'<html data-staging-page="{page}"', "HTML element")
     html = replace(html, r"</head>", '<link rel="stylesheet" href="staging-preview.css">\n'
                     '<script src="staging-catalog.js"></script>\n'
-                    '<script src="polls.js"></script>\n<script src="site.js"></script>\n</head>', "document head")
+                    '<script src="site.js"></script>\n</head>', "document head")
     return replace(html, r"<body[^>]*>", '<body>\n<div class="staging-notice">'
                    'Katalogvorschau aus PocketBase · Bestellungen auf der Live-Seite'
                    ' <a href="admin.html">Verwaltung</a></div>', "document body")
@@ -32,7 +32,7 @@ def home(html):
                    "  const client = window.FindoraStagingSite.public;\n", "homepage client", re.M)
     for name in ("loadActivePoll", "submitPublicPoll"):
         function = template_section(html, rf"^  async function {name}\([^\n]+$", name)
-        adapted = function.replace("client.rpc(", "window.FindoraStagingPollRpc(\"staging-polls\", ")
+        adapted = function.replace("client.rpc(", "window.FindoraStagingSite.polls(")
         adapted = adapted.replace("p_poll_id: Number(pollId)", "p_poll_id: pollId")
         html = replace(html, rf"^  async function {name}\([^\n]+$", adapted, name, re.M)
     contact = template_section(html, r"^  async function submitContact\([^\n]+$", "contact form")
@@ -126,19 +126,17 @@ def digital(html):
     return replace(html, r"<script>\s*\(function\(\)\{.*?</script>", script, "digital product startup", re.S)
 
 
-def links(html, homepage):
+def links(html):
     html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/[^"\n]+"></script>\s*', "", html)
     html = html.replace('href="index.html#admin-panel"', 'href="admin.html"')
-    scripts = '<script src="polls.js"></script><script src="site.js"></script>\n'
-    optimize = template_section(homepage, r"^  async function optimizeImage\([^\n]+$", "image optimization")
     adapter = (STAGING / "links.js").read_text(encoding="utf-8")
     html = replace(html, r'^    const client = window\.supabase\.createClient\([^\n]+$',
-                   "\n".join(("    const client = window.FindoraStagingSite.admin;", optimize, adapter)), "link management client", re.M)
+                   "    const client = window.FindoraStagingSite.admin;\n" + adapter, "link management client", re.M)
     for name in ("uploadImage", "saveProductRow", "deleteProduct", "replaceAll", "boot"):
         html = replace(html, rf"^    async function {name}\([^\n]+client\.[^\n]+$", "", name, re.M)
     html = html.replace('client.rpc("bulk_update_affiliate_links", { p_updates: updates })', 'bulkLinks(updates)')
     html = html.replace('async () => { await client.auth.signOut(); location.replace("index.html"); }', 'logout')
-    return replace(html, r"</head>", scripts + "</head>", "link management head")
+    return replace(html, r"</head>", '<script src="site.js"></script>\n</head>', "link management head")
 
 
 def template_section(html, pattern, label):
@@ -162,7 +160,7 @@ def build_admin(source, destination):
     # Compile the live view functions together with the PocketBase adapter. No live
     # bootstrap, Supabase client, or Supabase mutation code runs on this page.
     shared_functions = (
-        "notice", "clearNotice", "resetProductForm", "resetOwnProductForm", "optimizeImage",
+        "notice", "clearNotice", "resetProductForm", "resetOwnProductForm",
         "renderAffiliateQuickSearch", "addAdminPollOption", "resetAdminPollForm", "fillCategorySelect",
         "fillPartnerSelect", "adminProductsView", "renderAdminProducts", "decorateProductVisibility",
         "renderAdminOwnProducts", "renderAdminCategories", "renderAdminPartners", "editProduct", "editOwnProduct",
@@ -233,9 +231,9 @@ def build_admin_app(source, destination):
     manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
     (destination / "manifest.webmanifest").write_text(manifest, encoding="utf-8")
     service_worker = (ROOT / "service-worker.js").read_text(encoding="utf-8")
-    service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', 'const CACHE = "findora-staging-app-v1";', "staging app cache", re.M)
+    service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', 'const CACHE = "findora-staging-app-v2";', "staging app cache", re.M)
     service_worker = service_worker.replace('"./links.html"', '"./links.html", "./admin.html", "./admin.css", "./admin.js", '
-                                            '"./polls.js", "./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')
+                                            '"./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')
     service_worker = replace(service_worker, r'^  if \(url.origin !== self.location.origin\) return;$',
                              '  if (url.origin !== self.location.origin || !SHELL.some(path => new URL(path, self.location.href).href === url.href)) return;',
                              "staging app cache URLs", re.M)
@@ -256,10 +254,10 @@ def build(destination):
     build_admin(homepage, destination)
     build_admin_app(homepage, destination)
     shutil.copyfile(STAGING / "admin.css", destination / "admin.css")
-    shutil.copyfile(STAGING / "polls.js", destination / "polls.js")
-    shutil.copyfile(STAGING / "site.js", destination / "site.js")
-    (destination / "links.html").write_text(links((ROOT / "links.html").read_text(encoding="utf-8"),
-                                                homepage), encoding="utf-8")
+    optimize = template_section(homepage, r"^  async function optimizeImage\([^\n]+$", "image optimization")
+    site = (STAGING / "site.js").read_text(encoding="utf-8").replace("    /* product image optimization */", optimize)
+    (destination / "site.js").write_text(site, encoding="utf-8")
+    (destination / "links.html").write_text(links((ROOT / "links.html").read_text(encoding="utf-8")), encoding="utf-8")
     for name in ("findora-logo.png", "hero-banner.png", "app-icon-192.png", "app-icon-512.png"):
         shutil.copyfile(ROOT / name, destination / name)
     shutil.copytree(ROOT / "assets" / "disney-decor", destination / "assets" / "disney-decor", dirs_exist_ok=True)
