@@ -206,10 +206,10 @@
       if (editor === affiliate) {
         Object.assign(changes, { link: input("link").value, normal_link: input("normal-link").value,
           category: input("category").value, partner: input("partner").value, is_disney: input("disney").checked });
-      } else if (!production) {
+      } else {
         const price = input("price").value;
         changes.price_cents = price === "" ? null : Math.round(Number(price) * 100);
-        changes.purchase_url = input("paypal").value;
+        if (!production) changes.purchase_url = input("paypal").value;
         documentFile = input("file").files[0];
       }
       const saved = await writeProduct(editor.collection, product, changes, input("image").files[0], documentFile);
@@ -232,7 +232,8 @@
       scope.textContent = "PocketBase-Vorschau · Änderungen gelten nur für diese Vorschau.";
       head.after(scope);
     } else {
-      for (const id of ["admin-own-price", "admin-own-paypal", "admin-own-file"]) el(id).closest(".admin-field").hidden = true;
+      el("admin-own-paypal").closest(".admin-field").hidden = true;
+      el("admin-own-file-required").hidden = true;
     }
     head.querySelector('a[href="?customer=1"]').href = "index.html";
     const list = el("admin-products");

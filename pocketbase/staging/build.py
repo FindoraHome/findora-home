@@ -19,8 +19,7 @@ def replace(text, pattern, replacement, label, flags=0):
 
 
 def shared_template(html, page, origin=None):
-    if not (origin and page == "produkte"):
-        html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/[^"\n]+"></script>\s*', "", html)
+    html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/[^"\n]+"></script>\s*', "", html)
     if origin:
         html = html.replace(LEGACY_SITE, origin)
         return replace(html, r"</head>", '<script src="staging-catalog.js"></script>\n'
@@ -39,6 +38,11 @@ def home(html):
     html = re.sub(r"<script>\s*if \(false\) \{.*?</script>", "", html, count=1, flags=re.S)
     html = replace(html, r"^  const client = window\.supabase\.createClient\([^\n]+\);\n",
                    "  const client = window.FindoraStagingSite.public;\n", "homepage client", re.M)
+    # Admin has its own generated page and the public catalog uses PocketBase.
+    html = re.sub(r"^  const (?:publicImage|storagePath|PUBLIC_PRODUCT_COLUMNS) = [^\n]+\n", "", html, flags=re.M)
+    old_actions = ("loadCatalog", "loadAdminData", "saveOwnProduct", "removeOwnProductImage", "deleteOwnProduct",
+                   "uploadImage", "uploadOwnFile", "saveProduct", "removeProductImage", "deleteProduct", "login", "logout")
+    html = re.sub(rf"^  async function (?:{'|'.join(old_actions)})\([^\n]+\n", "", html, flags=re.M)
     for name in ("loadActivePoll", "submitPublicPoll"):
         function = template_section(html, rf"^  async function {name}\([^\n]+$", name)
         adapted = function.replace("client.rpc(", "window.FindoraStagingSite.polls(")
@@ -104,77 +108,84 @@ def disney(html):
     return replace(html, r"^    async function load\([^\n]+$", boot, "Disney catalog loader", re.M)
 
 
-def digital_checkout(html, sandbox=False):
-    # Both builds use the existing cart and PayPal handlers.
-    html = replace(html, r'^    <section id="own-admin-manage"[^\n]+\n', "", "Supabase product admin markup", re.M)
+def digital_page(html):
+    html = replace(html, r'^    <section id="own-admin-manage"[^\n]+\n', "", "product admin markup", re.M)
+    html = html.replace('href="index.html#admin-panel"', 'href="admin.html"')
+    return replace(html, r'<button id="products-admin-logout"[^<]+</button>', "", "sign-out button")
+
+
+def digital_catalog(html):
+    html = digital_page(html)
+    html = replace(html, r'^    <section id="cart"[^\n]+$', '    <p>Der Online-Kauf ist derzeit pausiert.</p>', "cart", re.M)
+    schema = template_section(html, r'^      function updateProductSchema\([^\n]+$', "product schema")
+    schema = replace(schema, r'if\(item\.price != null && Number\(item\.price\) > 0\) product\.offers = \{[^}]+\}; ',
+                     "", "product purchase offer")
+    render = template_section(html, r'^      function render\(\)\{.*?(?=^      search\.addEventListener)', "product renderer")
+    render = replace(render, r'^          if\(item\.price != null && Number\(item\.price\) > 0\)[^\n]+\n', "", "buy button", re.M)
+    script = '''<script>
+    (() => {
+      const box = document.getElementById("products"), search = document.getElementById("search");
+      const euro = value => Number(value).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+      let products = [];
+''' + schema + "\n" + render + '''      search.addEventListener("input", render);
+      window.FindoraStagingCatalog.digital().then(items => {
+        products = items;
+        render();
+        document.documentElement.dataset.catalogSource = "pocketbase";
+      }).catch(error => {
+        console.error(error);
+        box.innerHTML = '<div class="error">Die eigenen Produkte konnten gerade nicht geladen werden.</div>';
+      });
+    })();
+  </script>'''
+    return replace(html, r"<script>\s*\(function\(\)\{.*?</script>", script, "product catalog script", re.S)
+
+
+def digital_checkout(html):
+    html = digital_page(html)
     html = replace(html, r'^      const adminLogin = .*?(?=^      async function loadPublicProducts\()', "",
                    "Supabase product admin script", re.M | re.S)
-    html = html.replace('href="index.html#admin-panel"', 'href="admin.html"')
-    html = replace(html, r'<button id="products-admin-logout"[^<]+</button>', "", "Supabase sign-out button")
     client_pattern = r'^      const client = window\.supabase\.createClient\([^\n]+\);$'
-    if sandbox:
-        html = replace(html, r"</head>", '<script src="checkout.js"></script>\n</head>', "sandbox script")
-        html = replace(html, r'^      const SUPABASE_URL = [^\n]+\n', "", "Supabase URL", re.M)
-        html = replace(html, client_pattern, "      const client = window.FindoraSandboxCheckout;", "sandbox client", re.M)
-        html = replace(html, r'^      async function renderPaypal\(.*?(?=^      async function openRecordedDownload)',
-                       "", "unused product checkout", re.M | re.S)
-        html = replace(html, r'fetch\(SUPABASE_URL \+ "/functions/v1/paypal-config"\)\.then\(response => response\.ok \? response\.json\(\) : null\)',
-                       "client.config()", "sandbox configuration")
-        html = replace(html, r'if\(!config\?\.configured\) return false;',
-                       'if(!config?.configured || config.environment !== "sandbox") return false;', "sandbox guard")
-        html = replace(html, r'let products = \[\];', "let products = [], sandboxReady = false;", "sandbox state")
-        html = replace(html, r'if\(item\.price != null && Number\(item\.price\) > 0\)\{ const add',
-                       "if(sandboxReady && Number(item.price) > 0){ const add", "sandbox checkout availability")
-        html = replace(html, r'status\.textContent = "Preis folgt";',
-                       'status.textContent = item.price > 0 ? "PayPal Sandbox ist noch nicht eingerichtet." : "Preis folgt";',
-                       "sandbox checkout status")
-        html = replace(html, r'window\.open\(result\.data\.download_url, "_blank", "noopener"\);',
-                       'const link = document.createElement("a"); link.href = result.data.download_url; '
-                       'link.download = result.data.file_name; link.click();', "private sandbox download")
-        # A receipt replaces the cart; restore the original cart for a new purchase.
-        html = replace(html, r'^      const cart = new Map\(\);$',
-                       '      const cart = new Map(), cartMarkup = document.getElementById("cart").innerHTML;',
-                       "cart markup", re.M)
-        html = replace(html, r'cart\.set\(item\.id, item\);',
-                       'if(!document.getElementById("cart-items")) document.getElementById("cart").innerHTML = cartMarkup; '
-                       'cart.set(item.id, item);', "restore cart after payment")
-        html = replace(html, r'document\.getElementById\("cart-clear"\)\.addEventListener\("click", \(\) => \{ cart\.clear\(\); void renderCart\(\); \}\);',
-                       'document.getElementById("cart").addEventListener("click", event => { '
-                       'if(event.target.id === "cart-clear"){ cart.clear(); void renderCart(); } });', "cart clear event")
-        loader = '''      async function loadPublicProducts(){
-        try {
-          const [catalog, config] = await Promise.all([window.FindoraStagingCatalog.digital(), client.config()]);
-          products = catalog;
-          sandboxReady = config?.configured === true && config.environment === "sandbox";
-          render();
-          document.documentElement.dataset.catalogSource = "pocketbase";
-        } catch (error) {
-          console.error(error);
-          box.innerHTML = '<div class="error">Die eigenen Produkte konnten gerade nicht geladen werden.</div>';
-        }
-      }'''
-        return replace(html, r'^      async function loadPublicProducts\([^\n]+$', loader, "digital checkout catalog", re.M)
-
-    client = template_section(html, client_pattern, "checkout client").removesuffix(");")
-    html = replace(html, client_pattern, client + ", { auth: { persistSession: false, detectSessionInUrl: false } });",
-                   "checkout client", re.M)
+    html = replace(html, r"</head>", '<script src="checkout.js"></script>\n</head>', "sandbox script")
+    html = replace(html, r'^      const SUPABASE_URL = [^\n]+\n', "", "Supabase URL", re.M)
+    html = replace(html, client_pattern, "      const client = window.FindoraSandboxCheckout;", "sandbox client", re.M)
+    html = replace(html, r'^      async function renderPaypal\(.*?(?=^      async function openRecordedDownload)',
+                   "", "unused product checkout", re.M | re.S)
+    html = replace(html, r'fetch\(SUPABASE_URL \+ "/functions/v1/paypal-config"\)\.then\(response => response\.ok \? response\.json\(\) : null\)',
+                   "client.config()", "sandbox configuration")
+    html = replace(html, r'if\(!config\?\.configured\) return false;',
+                   'if(!config?.configured || config.environment !== "sandbox") return false;', "sandbox guard")
+    html = replace(html, r'let products = \[\];', "let products = [], sandboxReady = false;", "sandbox state")
+    html = replace(html, r'if\(item\.price != null && Number\(item\.price\) > 0\)\{ const add',
+                   "if(sandboxReady && Number(item.price) > 0){ const add", "sandbox checkout availability")
+    html = replace(html, r'status\.textContent = "Preis folgt";',
+                   'status.textContent = item.price > 0 ? "PayPal Sandbox ist noch nicht eingerichtet." : "Preis folgt";',
+                   "sandbox checkout status")
+    html = replace(html, r'window\.open\(result\.data\.download_url, "_blank", "noopener"\);',
+                   'const link = document.createElement("a"); link.href = result.data.download_url; '
+                   'link.download = result.data.file_name; link.click();', "private sandbox download")
+    # A receipt replaces the cart; restore the original cart for a new purchase.
+    html = replace(html, r'^      const cart = new Map\(\);$',
+                   '      const cart = new Map(), cartMarkup = document.getElementById("cart").innerHTML;',
+                   "cart markup", re.M)
+    html = replace(html, r'cart\.set\(item\.id, item\);',
+                   'if(!document.getElementById("cart-items")) document.getElementById("cart").innerHTML = cartMarkup; '
+                   'cart.set(item.id, item);', "restore cart after payment")
+    html = replace(html, r'document\.getElementById\("cart-clear"\)\.addEventListener\("click", \(\) => \{ cart\.clear\(\); void renderCart\(\); \}\);',
+                   'document.getElementById("cart").addEventListener("click", event => { '
+                   'if(event.target.id === "cart-clear"){ cart.clear(); void renderCart(); } });', "cart clear event")
     loader = '''      async function loadPublicProducts(){
-        try {
-          const [catalog, checkout] = await Promise.all([
-            window.FindoraStagingCatalog.digital(),
-            client.from("own_products").select("id,price").eq("active", true).order("id", { ascending: true }),
-          ]);
-          const prices = new Map((checkout.error ? [] : checkout.data || [])
-            .filter(row => Number.isFinite(Number(row.price)) && Number(row.price) > 0)
-            .map(row => [String(row.id), Number(row.price)]));
-          products = catalog.map(item => ({ ...item, price: item.staging_only ? null : prices.get(String(item.id)) ?? null }));
-          render();
-          document.documentElement.dataset.catalogSource = "pocketbase";
-        } catch (error) {
-          console.error(error);
-          box.innerHTML = '<div class="error">Die eigenen Produkte konnten gerade nicht geladen werden.</div>';
-        }
-      }'''
+    try {
+      const [catalog, config] = await Promise.all([window.FindoraStagingCatalog.digital(), client.config()]);
+      products = catalog;
+      sandboxReady = config?.configured === true && config.environment === "sandbox";
+      render();
+      document.documentElement.dataset.catalogSource = "pocketbase";
+    } catch (error) {
+      console.error(error);
+      box.innerHTML = '<div class="error">Die eigenen Produkte konnten gerade nicht geladen werden.</div>';
+    }
+  }'''
     return replace(html, r'^      async function loadPublicProducts\([^\n]+$', loader, "digital checkout catalog", re.M)
 
 
@@ -211,7 +222,8 @@ def build_admin(source, destination, origin=None):
         page = page.replace('<html lang="de">', '<html lang="de" data-findora-mode="production">')
         page = page.replace("Findora Home · Vorschauverwaltung", "Findora Home · Verwaltung")
         page = page.replace("Produkte, die du selbst herstellst und direkt verkaufen möchtest. Mit einem Preis wird automatisch ein sicherer PayPal-Button angezeigt.",
-                            "Produktdarstellung bearbeiten. Preise, Zahlungslinks und bezahlte Downloads werden in Supabase verwaltet.")
+                            "Verwalte eigene Produkte mit Bildern, Preisen und privaten PDF-Dateien.")
+        page = page.replace("Wird nach erfolgreicher PayPal-Zahlung 1 Stunde zum Download freigegeben.", "Die PDF-Datei bleibt privat.")
     (destination / "admin.html").write_text(page, encoding="utf-8")
 
     # Compile the live view functions together with the PocketBase adapter. No live
@@ -302,9 +314,9 @@ def build_admin_app(source, destination, origin=None):
     (destination / "service-worker.js").write_text(service_worker, encoding="utf-8")
 
 
-def build(destination, origin=None):
+def build(destination, origin=None, api_origin=""):
     destination.mkdir(parents=True, exist_ok=True)
-    for name, adapt in (("index", home), ("disney", disney), ("produkte", lambda html: digital_checkout(html, sandbox=not origin))):
+    for name, adapt in (("index", home), ("disney", disney), ("produkte", digital_catalog if origin else digital_checkout)):
         source = (ROOT / f"{name}.html").read_text(encoding="utf-8")
         (destination / f"{name}.html").write_text(adapt(shared_template(source, name, origin)), encoding="utf-8")
     shutil.copyfile(STAGING / "catalog.js", destination / "staging-catalog.js")
@@ -317,6 +329,7 @@ def build(destination, origin=None):
     shutil.copyfile(STAGING / "admin.css", destination / "admin.css")
     optimize = template_section(homepage, r"^  async function optimizeImage\([^\n]+$", "image optimization")
     site = (STAGING / "site.js").read_text(encoding="utf-8").replace("    /* product image optimization */", optimize)
+    site = replace(site, r'^    const apiOrigin = "";$', "    const apiOrigin = " + json.dumps(api_origin) + ";", "API origin", re.M)
     (destination / "site.js").write_text(site, encoding="utf-8")
     (destination / "links.html").write_text(links((ROOT / "links.html").read_text(encoding="utf-8")), encoding="utf-8")
     for name in ("findora-logo.png", "hero-banner.png", "app-icon-192.png", "app-icon-512.png"):
@@ -324,15 +337,18 @@ def build(destination, origin=None):
     shutil.copytree(ROOT / "assets" / "disney-decor", destination / "assets" / "disney-decor", dirs_exist_ok=True)
 
 
-def production_caddy(destination, host):
+def production_caddy(destination, host, api_only=False):
     staging = (STAGING / "Caddyfile").read_text(encoding="utf-8")
     staging = re.sub(r"\n\s*# Sandbox checkout routes\n.*?\n\s*# End sandbox checkout routes\n", "\n", staging, flags=re.S)
     routes = template_section(staging, r"(^\s*@catalog \{.*?^\s*handle /api/\* \{\s*respond 404\s*\})",
                               "PocketBase proxy routes").strip("\n")
-    checkout = (ROOT / "produkte.html").read_text(encoding="utf-8")
-    payment_origin = template_section(checkout, r'^      const SUPABASE_URL = "(https://[a-z0-9]+\.supabase\.co)";$', "payment origin")
+    if api_only:
+        routes = re.sub(r"^(\s*method [^\n]+)$", r"\1 OPTIONS", routes, flags=re.M)
+        routes = routes.replace("path /api/collections/products/records", "path /api/health /api/collections/products/records", 1)
     template = (PRODUCTION / "Caddyfile").read_text(encoding="utf-8")
-    template = template.replace("PUBLIC_HOSTNAME", host).replace("PAYMENT_ORIGIN", payment_origin)
+    template = template.replace("PUBLIC_HOSTNAME", host)
+    if api_only:
+        template = template.replace("\t\troot * /srv/findora-home/current\n\t\tfile_server", "\t\trespond 404")
     destination.write_text(template.replace("# POCKETBASE_ROUTES", routes.replace("127.0.0.1:8090", "127.0.0.1:8091")), encoding="utf-8")
 
 
@@ -356,27 +372,30 @@ def legacy_redirects(destination, origin):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build Findora from the existing templates for PocketBase staging or production.")
     parser.add_argument("destination", type=Path)
-    parser.add_argument("--public-origin", help="production HTTPS origin, without a path")
+    parser.add_argument("--public-origin", help="production HTTPS website URL, including any base path")
+    parser.add_argument("--api-origin", help="separate production HTTPS API origin, without a path")
     parser.add_argument("--caddy-output", type=Path, help="production Caddy site config, outside the website directory")
     parser.add_argument("--legacy-output", type=Path, help="optional redirects for the old GitHub Pages URL")
     args = parser.parse_args()
     if bool(args.public_origin) != bool(args.caddy_output):
         parser.error("--public-origin and --caddy-output must be supplied together")
-    if args.legacy_output and not args.public_origin:
-        parser.error("--legacy-output requires --public-origin")
+    if (args.api_origin or args.legacy_output) and not args.public_origin:
+        parser.error("--api-origin and --legacy-output require --public-origin")
     if args.public_origin:
         label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-        hostname = re.fullmatch(rf"https://({label}(?:\.{label})+)/?", args.public_origin)
-        if not hostname:
-            parser.error("--public-origin must be an HTTPS domain without a path, credentials, or port")
+        https_host = rf"https://({label}(?:\.{label})+)"
+        public = re.fullmatch(https_host + r"((?:/[a-zA-Z0-9_-]+)*)/?", args.public_origin)
+        api = re.fullmatch(https_host + "/?", args.api_origin) if args.api_origin else None
+        if not public or (args.api_origin and not api) or (public[2] and not api):
+            parser.error("use HTTPS URLs and provide a separate --api-origin for a website with a base path")
         if args.caddy_output.resolve().is_relative_to(args.destination.resolve()):
             parser.error("the Caddy config must be outside the website directory")
         if args.legacy_output and (args.legacy_output.resolve().is_relative_to(args.destination.resolve()) or
                                    args.destination.resolve().is_relative_to(args.legacy_output.resolve()) or
                                    args.caddy_output.resolve().is_relative_to(args.legacy_output.resolve())):
             parser.error("legacy redirects, website files and Caddy config must have separate destinations")
-        production_caddy(args.caddy_output, hostname[1])
+        production_caddy(args.caddy_output, api[1] if api else public[1], api_only=bool(api))
     origin = args.public_origin.rstrip("/") if args.public_origin else None
-    build(args.destination, origin)
+    build(args.destination, origin, args.api_origin.rstrip("/") if args.api_origin else "")
     if args.legacy_output:
         legacy_redirects(args.legacy_output, origin)

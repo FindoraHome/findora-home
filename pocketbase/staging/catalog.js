@@ -7,7 +7,8 @@
 
         do {
             query.set("page", String(page++));
-            const response = await fetch(`/api/collections/${collection}/records?${query}`);
+            const url = window.FindoraStagingSite.apiUrl(`/api/collections/${collection}/records?${query}`);
+            const response = await fetch(url);
             if (!response.ok) throw new Error(`Katalogabfrage fehlgeschlagen (${response.status}).`);
             const result = await response.json();
             items.push(...result.items);

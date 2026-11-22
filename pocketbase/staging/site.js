@@ -1,4 +1,6 @@
 (() => {
+    const apiOrigin = "";
+    const apiUrl = path => apiOrigin + path;
     const tokenKey = "findora-staging-admin";
     const token = () => sessionStorage.getItem(tokenKey) || "";
     const sessionEmail = () => sessionStorage.getItem(`${tokenKey}-email`) || "";
@@ -9,7 +11,7 @@
         const session = admin ? token() : "";
         const headers = new Headers(options.headers);
         if (session) headers.set("Authorization", session);
-        const response = await fetch(path, { ...options, headers });
+        const response = await fetch(apiUrl(path), { ...options, headers });
         const result = await response.json().catch(() => ({}));
         if (response.status === 401 && session && session === token()) window.dispatchEvent(new Event("findora-session-expired"));
         if (!response.ok) throw new Error(result.message || "Die Anfrage konnte nicht abgeschlossen werden.");
@@ -29,7 +31,7 @@
     const adminRequest = (path, options) => request(`/api/findora/staging-admin/${path}`, options, true);
     const productPath = (collection, id) => `products/${collection}/${encodeURIComponent(id)}`;
     const fileUrl = (collection, record) => record.image
-        ? `/api/files/${collection}/${encodeURIComponent(record.id)}/${encodeURIComponent(record.image)}` : "";
+        ? apiUrl(`/api/files/${collection}/${encodeURIComponent(record.id)}/${encodeURIComponent(record.image)}`) : "";
 
     async function saveProduct(collection, product, changes, image, documentFile) {
         const body = new FormData();
@@ -107,7 +109,7 @@
         admin: { rpc: adminRpc, from: name => from(name, true), functions: { invoke } },
         polls: (action, input) => rpc("staging-polls", action, input),
         adminPolls: (action, input) => rpc("staging-admin/polls", action, input, true),
-        adminRequest, json, productPath, fileUrl, saveProduct, token, sessionEmail,
+        adminRequest, json, productPath, apiUrl, fileUrl, saveProduct, token, sessionEmail,
         async signIn(email, password) {
             const result = await request("/api/collections/findora_admins/auth-with-password", json({ identity: email, password }));
             sessionStorage.setItem(tokenKey, result.token);
