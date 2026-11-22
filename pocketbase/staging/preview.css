@@ -1,0 +1,17 @@
+.staging-notice {
+    padding: 8px 14px;
+    background: #f3eadf;
+    color: #4f493d;
+    border-bottom: 1px solid #e3d7c9;
+    text-align: center;
+    font: 600 13px/1.4 system-ui, sans-serif;
+}
+
+.staging-notice a { margin-inline-start: 10px; color: inherit; }
+
+#admin-login-button, #admin-logout-button, #admin-panel, #login-backdrop,
+#products-admin-login, #products-admin-logout, #own-admin-manage,
+#contact, [href="#contact"], #public-polls, #vacation-notice, #app-install-button,
+[data-staging-page="disney"] .favorite-button {
+    display: none !important;
+}

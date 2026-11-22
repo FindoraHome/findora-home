@@ -1,0 +1,58 @@
+{
+	admin off
+	auto_https off
+}
+
+http://127.0.0.1:8100 {
+	bind 127.0.0.1
+	header {
+		>Cache-Control "no-store"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+		X-Robots-Tag "noindex, nofollow"
+	}
+
+	@catalog {
+		method GET HEAD
+		path /api/collections/products/records /api/collections/categories/records /api/collections/partners/records /api/collections/own_products/records /api/files/products/* /api/files/own_products/*
+	}
+	handle @catalog {
+		reverse_proxy 127.0.0.1:8090 {
+			header_up -Authorization
+			header_up -Cookie
+		}
+	}
+
+	@stagingAdmin {
+		method GET POST DELETE
+		path /api/collections/findora_admins/auth-with-password /api/findora/staging-admin/catalog /api/findora/staging-admin/products/* /api/findora/staging-admin/polls/* /api/findora/staging-admin/links /api/findora/staging-admin/taxonomy/* /api/findora/staging-admin/duplicate/* /api/findora/staging-admin/site/* /api/findora/staging-admin/link-tools/* /api/findora/staging-admin/delivery/*
+	}
+	handle @stagingAdmin {
+		reverse_proxy 127.0.0.1:8090 {
+			header_up -Cookie
+		}
+	}
+
+	@stagingPolls {
+		method POST
+		path /api/findora/staging-polls/get_active_polls /api/findora/staging-polls/vote_in_poll_multi /api/findora/staging-site/*
+	}
+	handle @stagingPolls {
+		reverse_proxy 127.0.0.1:8090 {
+			header_up -Authorization
+			header_up -Cookie
+		}
+	}
+
+	handle /api/* {
+		respond 404
+	}
+	handle_path /integrations/* {
+		reverse_proxy 127.0.0.1:8191
+	}
+	handle {
+		root * /srv/findora-catalog-staging/current
+		file_server
+	}
+}

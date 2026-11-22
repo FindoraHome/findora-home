@@ -1,0 +1,20 @@
+[Unit]
+Description=Findora catalog staging preview
+After=network.target findora-pocketbase.service
+
+[Service]
+Type=simple
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --config /etc/findora-catalog-staging.Caddyfile --adapter caddyfile
+StateDirectory=findora-catalog-staging
+Environment=XDG_DATA_HOME=/var/lib/findora-catalog-staging
+Environment=XDG_CONFIG_HOME=/var/lib/findora-catalog-staging/config
+Restart=on-failure
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
