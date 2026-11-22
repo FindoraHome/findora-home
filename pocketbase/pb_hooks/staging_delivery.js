@@ -1,5 +1,6 @@
 const deliveries = "staging_deliveries";
 const env = name => $os.getenv(`FINDORA_STAGING_${name}`);
+const siteName = () => $os.getenv("FINDORA_SITE_MODE") === "production" ? "Findora Home" : "Findora-Vorschau";
 
 function settings(bot) {
     const prefix = bot === "dolly" ? "DOLLY_TELEGRAM_" : "TELEGRAM_";
@@ -25,7 +26,7 @@ function telegram(bot, method, input) {
 
 function send(bot, text) {
     const config = settings(bot);
-    telegram(bot, "sendMessage", { chat_id: config?.chat, text: `Findora-Vorschau\n\n${Array.from(text).slice(0, 3700).join("")}`,
+    telegram(bot, "sendMessage", { chat_id: config?.chat, text: `${siteName()}\n\n${Array.from(text).slice(0, 3700).join("")}`,
         disable_web_page_preview: true });
 }
 
@@ -72,7 +73,7 @@ function email(app, payload) {
         app.newMailClient().send(new MailerMessage({
             from: { address: app.settings().meta.senderAddress, name: app.settings().meta.senderName },
             to: [{ address: recipient }],
-            subject: "Findora Home – Neue Nachricht aus der Vorschau",
+            subject: `${siteName()} – Neue Nachricht`,
             text: `${payload.topic}\n\n${payload.message}\n\n${payload.name || "Ohne Namen"}\n${payload.email}`,
             headers: payload.email ? { "Reply-To": payload.email } : {},
         }));
@@ -98,7 +99,7 @@ function admin(e) {
         const url = env("DOLLY_WEBHOOK_URL");
         const secret = env("DOLLY_TELEGRAM_WEBHOOK_SECRET");
         if (!/^https:\/\/[a-z0-9.-]+\/[a-z0-9/-]*dolly$/i.test(url) || !/^[a-zA-Z0-9_-]{16,256}$/.test(secret)) {
-            throw new BadRequestError("Der Vorschau-Webhook braucht eine eigene öffentliche HTTPS-Adresse und ein Webhook-Geheimnis.");
+            throw new BadRequestError("Der Webhook braucht eine öffentliche HTTPS-Adresse und ein Webhook-Geheimnis.");
         }
         telegram("dolly", "setWebhook", { url, secret_token: secret, allowed_updates: ["message"] });
         return e.json(200, { data: { configured: true, webhook_url: url } });

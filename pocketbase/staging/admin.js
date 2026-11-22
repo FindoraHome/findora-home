@@ -1,6 +1,7 @@
   const el = id => document.getElementById(id);
   const admin = { products: [], ownProducts: [], categories: [], partners: [], polls: [], likeCounts: {}, clickCounts: {}, isAdmin: false };
   const api = window.FindoraStagingSite;
+  const production = document.documentElement.dataset.findoraMode === "production";
   const { admin: client, adminRequest: request, adminPolls: pollRpc, productPath, saveProduct: writeProduct } = api;
   let linkCheckPromise = null;
   const loginForm = el("login-form");
@@ -205,7 +206,7 @@
       if (editor === affiliate) {
         Object.assign(changes, { link: input("link").value, normal_link: input("normal-link").value,
           category: input("category").value, partner: input("partner").value, is_disney: input("disney").checked });
-      } else {
+      } else if (!production) {
         const price = input("price").value;
         changes.price_cents = price === "" ? null : Math.round(Number(price) * 100);
         changes.purchase_url = input("paypal").value;
@@ -214,7 +215,7 @@
       const saved = await writeProduct(editor.collection, product, changes, input("image").files[0], documentFile);
       if (editor.selection === selection) showProduct(editor, saved);
       await loadAdminData();
-      notice("Änderungen in der Vorschau gespeichert.", "success");
+      notice(production ? "Änderungen gespeichert." : "Änderungen in der Vorschau gespeichert.", "success");
     } catch (error) {
       notice(error.message, "error");
     } finally {
@@ -227,8 +228,12 @@
     const head = panel.querySelector(".admin-head");
     const scope = document.createElement("p");
     scope.className = "admin-note staging-scope";
-    scope.textContent = "PocketBase-Vorschau · Änderungen gelten nur für diese Vorschau.";
-    head.after(scope);
+    if (!production) {
+      scope.textContent = "PocketBase-Vorschau · Änderungen gelten nur für diese Vorschau.";
+      head.after(scope);
+    } else {
+      for (const id of ["admin-own-price", "admin-own-paypal", "admin-own-file"]) el(id).closest(".admin-field").hidden = true;
+    }
     head.querySelector('a[href="?customer=1"]').href = "index.html";
     const list = el("admin-products");
     list.hidden = false;

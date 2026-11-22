@@ -18,6 +18,7 @@ EVENTS = {"page_views": ("visit", "visited_at"), "product_clicks": ("click", "cl
           "product_likes": ("like", "liked_at"), "search_queries": ("search", "searched_at")}
 TABLES = {*EVENTS, "users", "admin_users", "categories", "partners", "products", "own_products", "polls", "poll_options",
           "poll_votes", "contact_messages", "site_settings", "stats_reset_log", "product_clicks_reset_log", "amazon_order_imports"}
+PRODUCTION_TABLES = TABLES | {"telegram_notification_log"}
 COPY = re.compile(r"COPY (?:public|auth)\.(\w+) \(([^)]+)\) FROM stdin;")
 ESCAPE = re.compile(rb"\\(x[0-9a-fA-F]{1,2}|[0-7]{1,3}|.)")
 ESCAPED = {b"b": b"\b", b"f": b"\f", b"n": b"\n", b"r": b"\r", b"t": b"\t", b"v": b"\v"}
@@ -36,7 +37,7 @@ def copy_value(value):
     return None if value == r"\N" else ESCAPE.sub(unescape, value.encode()).decode()
 
 
-def read_tables(lines):
+def read_tables(lines, expected=TABLES):
     tables = {}
     table = None
     for line in lines:
@@ -46,14 +47,14 @@ def read_tables(lines):
                 table = None
             else:
                 tables[table].append(dict(zip(columns, map(copy_value, line.split("\t")), strict=True)))
-        elif (match := COPY.fullmatch(line)) and match[1] in TABLES:
+        elif (match := COPY.fullmatch(line)) and match[1] in expected:
             table = match[1]
             canonical_schema = "auth" if table == "users" else "public"
             if not line.startswith(f"COPY {canonical_schema}.") or table in tables:
                 raise ValueError(f"Unexpected duplicate or schema for table {table}.")
             columns = match[2].split(", ")
             tables[table] = []
-    if table or tables.keys() != TABLES:
+    if table or tables.keys() != expected:
         raise ValueError("The archive did not supply all complete migration tables.")
     return tables
 
@@ -136,19 +137,32 @@ def catalog(tables, backup, target):
         for name in ("categories", "partners")}}
 
 
-def polls(tables):
-    participants = defaultdict(set)
-    votes = Counter()
-    for row in tables["poll_votes"]:
-        participants[row["poll_id"]].add(row["visitor_token"])
-        votes[row["option_id"]] += 1
+def polls(tables, production=False):
+    votes = Counter(row["option_id"] for row in tables["poll_votes"])
     options = defaultdict(list)
+    choice_ids = {}
     for row in sorted(tables["poll_options"], key=lambda item: (int(item["sort_order"]), int(item["id"]))):
         choices = options[row["poll_id"]]
-        choices.append({"id": len(choices) + 1, "label": row["label"], "votes": votes[row["id"]]})
-    return [{**catalog_row(row, "question"), "ends_at": timestamp(row["ends_at"]),
-             "participant_goal": int(row.get("participant_goal") or 0), "options": options[row["id"]],
-             "imported_participants": len(participants[row["id"]])} for row in tables["polls"]]
+        choice_ids[row["id"]] = len(choices) + 1
+        choices.append({"id": choice_ids[row["id"]], "label": row["label"], "votes": 0 if production else votes[row["id"]]})
+    participants = defaultdict(lambda: defaultdict(set))
+    for row in tables["poll_votes"]:
+        participants[row["poll_id"]][row["visitor_token"]].add(choice_ids[row["option_id"]])
+    result = []
+    now = datetime.now(timezone.utc)
+    for row in tables["polls"]:
+        poll_id = row["id"]
+        voters = participants[poll_id]
+        poll = {**catalog_row(row, "question"), "ends_at": timestamp(row["ends_at"]),
+                "participant_goal": int(row.get("participant_goal") or 0), "options": options[poll_id],
+                "imported_participants": 0 if production else len(voters)}
+        if production:
+            poll["ballots"] = [{"voter": hashlib.sha256(token.encode()).hexdigest(), "choices": sorted(choices)}
+                               for token, choices in voters.items()]
+            poll["results_sent"] = (row["result_notified"] == "t" or not poll["active"] or
+                                    datetime.fromisoformat(poll["ends_at"]) <= now)
+        result.append(poll)
+    return result
 
 
 def site_data(tables):
@@ -170,16 +184,23 @@ def site_data(tables):
             "staging_amazon_reports": reports}
 
 
-def prepare(tables, backup, target):
+def prepare(tables, backup, target, production=False):
     admin_ids = {row["user_id"] for row in tables["admin_users"]}
     admins = [{"email": row["email"], "hash": row["encrypted_password"]} for row in tables["users"]
               if row["id"] in admin_ids and row["email_confirmed_at"] and not row["deleted_at"] and not row["banned_until"]]
     if not admins:
         raise ValueError("The backup does not contain an active, verified admin.")
     target.mkdir(mode=0o700)
-    rows = {**catalog(tables, backup, target), **site_data(tables), "staging_polls": polls(tables), "findora_admins": admins}
+    rows = {**catalog(tables, backup, target), **site_data(tables), "staging_polls": polls(tables, production), "findora_admins": admins}
+    if production:
+        rows["staging_deliveries"] = list({
+            row["event_type"]: {"key": f"dolly:{row['event_type']}", "kind": "summary", "created_at": timestamp(row["sent_at"]),
+                                "sent_at": timestamp(row["sent_at"])}
+            for row in tables["telegram_notification_log"]
+            if re.fullmatch(r"(?:daily|weekly)-summary-\d{4}-\d{2}-\d{2}", row["event_type"])
+        }.values())
     with (target / "snapshot.json").open("x", encoding="utf-8") as output:
-        json.dump(rows, output, ensure_ascii=False)
+        json.dump({**rows, "mode": "production" if production else "staging"}, output, ensure_ascii=False)
     print(json.dumps({table: len(records) for table, records in rows.items()}))
 
 
@@ -187,11 +208,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("backup", type=Path)
     parser.add_argument("target", type=Path, help="new, private directory for the snapshot and assets")
+    parser.add_argument("--production", action="store_true", help="include hashed poll ballots and scheduled Telegram delivery markers")
     args = parser.parse_args()
+    expected = PRODUCTION_TABLES if args.production else TABLES
     command = ["pg_restore", "--data-only", "--schema=public", "--schema=auth", "--file=-",
-               *(f"--table={table}" for table in sorted(TABLES)), str(args.backup / "database/findora.dump")]
+               *(f"--table={table}" for table in sorted(expected)), str(args.backup / "database/findora.dump")]
     with subprocess.Popen(command, stdout=subprocess.PIPE, text=True, encoding="utf-8") as archive:
-        tables = read_tables(archive.stdout)
+        tables = read_tables(archive.stdout, expected)
         if archive.wait():
             raise SystemExit("pg_restore could not read the backup.")
-    prepare(tables, args.backup, args.target)
+    prepare(tables, args.backup, args.target, args.production)

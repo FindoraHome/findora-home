@@ -1,4 +1,4 @@
-import { env } from "./bridge.ts";
+import { env, production } from "./bridge.ts";
 import { handler as dolly, sendScheduledDailySummary } from "./dolly.ts";
 import { handler as instagram } from "./instagram.ts";
 
@@ -14,7 +14,7 @@ export function handle(request: Request) {
 }
 
 if (import.meta.main) {
-  Deno.serve({ hostname: "127.0.0.1", port: 8191 }, handle);
+  Deno.serve({ hostname: "127.0.0.1", port: production ? 8192 : 8191 }, handle);
   let sending = false;
   setInterval(async () => {
     if (sending || !env("DOLLY_TELEGRAM_BOT_TOKEN")) return;

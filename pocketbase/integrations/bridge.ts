@@ -2,6 +2,7 @@ type Input = { table: string; count?: boolean; from?: string; before?: string; m
 type Result = { data?: any[]; count?: number; error?: Error };
 
 export const env = (name: string) => Deno.env.get(`FINDORA_STAGING_${name}`);
+export const production = Deno.env.get("FINDORA_SITE_MODE") === "production";
 
 export function outputText(payload: { output_text?: string; output?: { content?: { type: string; text?: string }[] }[] }) {
   return payload.output_text || (payload.output ?? []).flatMap(item => item.content ?? [])
@@ -11,7 +12,7 @@ export function outputText(payload: { output_text?: string; output?: { content?:
 async function query(input: Input): Promise<Result> {
   const key = env("WORKER_KEY");
   if (!key) throw new Error("PocketBase ist für Dolly noch nicht eingerichtet.");
-  const response = await fetch("http://127.0.0.1:8090/api/findora/internal/staging-worker", {
+  const response = await fetch(`http://127.0.0.1:${production ? 8091 : 8090}/api/findora/internal/staging-worker`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Findora-Worker-Key": key },
     body: JSON.stringify(input), signal: AbortSignal.timeout(8000),

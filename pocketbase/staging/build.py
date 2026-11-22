@@ -1,4 +1,5 @@
 import argparse
+import json
 import re
 import shutil
 from pathlib import Path
@@ -6,6 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 STAGING = Path(__file__).resolve().parent
+PRODUCTION = STAGING.parent / "production"
+LEGACY_SITE = "https://findorahome.github.io/findora-home"
 
 
 def replace(text, pattern, replacement, label, flags=0):
@@ -15,8 +18,13 @@ def replace(text, pattern, replacement, label, flags=0):
     return result
 
 
-def shared_template(html, page):
-    html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/[^"\n]+"></script>\s*', "", html)
+def shared_template(html, page, origin=None):
+    if not (origin and page == "produkte"):
+        html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/[^"\n]+"></script>\s*', "", html)
+    if origin:
+        html = html.replace(LEGACY_SITE, origin)
+        return replace(html, r"</head>", '<script src="staging-catalog.js"></script>\n'
+                       '<script src="site.js"></script>\n</head>', "document head")
     html = replace(html, r"<html(?=\s)", f'<html data-staging-page="{page}"', "HTML element")
     html = replace(html, r"</head>", '<link rel="stylesheet" href="staging-preview.css">\n'
                     '<script src="staging-catalog.js"></script>\n'
@@ -126,6 +134,38 @@ def digital(html):
     return replace(html, r"<script>\s*\(function\(\)\{.*?</script>", script, "digital product startup", re.S)
 
 
+def digital_checkout(html):
+    # Keep the original cart and PayPal handlers. Only the price and eligibility
+    # lookup remain in Supabase with the order and download APIs.
+    html = replace(html, r'^    <section id="own-admin-manage"[^\n]+\n', "", "Supabase product admin markup", re.M)
+    html = replace(html, r'^      const adminLogin = .*?(?=^      async function loadPublicProducts\()', "",
+                   "Supabase product admin script", re.M | re.S)
+    html = html.replace('href="index.html#admin-panel"', 'href="admin.html"')
+    html = replace(html, r'<button id="products-admin-logout"[^<]+</button>', "", "Supabase sign-out button")
+    client_pattern = r'^      const client = window\.supabase\.createClient\([^\n]+\);$'
+    client = template_section(html, client_pattern, "checkout client").removesuffix(");")
+    html = replace(html, client_pattern, client + ", { auth: { persistSession: false, detectSessionInUrl: false } });",
+                   "checkout client", re.M)
+    loader = '''      async function loadPublicProducts(){
+        try {
+          const [catalog, checkout] = await Promise.all([
+            window.FindoraStagingCatalog.digital(),
+            client.from("own_products").select("id,price").eq("active", true).order("id", { ascending: true }),
+          ]);
+          const prices = new Map((checkout.error ? [] : checkout.data || [])
+            .filter(row => Number.isFinite(Number(row.price)) && Number(row.price) > 0)
+            .map(row => [String(row.id), Number(row.price)]));
+          products = catalog.map(item => ({ ...item, price: item.staging_only ? null : prices.get(String(item.id)) ?? null }));
+          render();
+          document.documentElement.dataset.catalogSource = "pocketbase";
+        } catch (error) {
+          console.error(error);
+          box.innerHTML = '<div class="error">Die eigenen Produkte konnten gerade nicht geladen werden.</div>';
+        }
+      }'''
+    return replace(html, r'^      async function loadPublicProducts\([^\n]+$', loader, "digital checkout catalog", re.M)
+
+
 def links(html):
     html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/[^"\n]+"></script>\s*', "", html)
     html = html.replace('href="index.html#admin-panel"', 'href="admin.html"')
@@ -146,7 +186,7 @@ def template_section(html, pattern, label):
     return sections[0]
 
 
-def build_admin(source, destination):
+def build_admin(source, destination, origin=None):
     sections = {
         "styles": "\n".join(re.findall(r"^<style>.*?^</style>", source.split("</head>", 1)[0], re.M | re.S)),
         "header": template_section(source, r"^<header>.*?^</header>", "header"),
@@ -155,6 +195,11 @@ def build_admin(source, destination):
     }
     template = (STAGING / "admin.html").read_text(encoding="utf-8")
     page = re.sub(r"<!-- (styles|header|panel|login) -->", lambda match: sections[match[1]], template)
+    if origin:
+        page = page.replace('<html lang="de">', '<html lang="de" data-findora-mode="production">')
+        page = page.replace("Findora Home · Vorschauverwaltung", "Findora Home · Verwaltung")
+        page = page.replace("Produkte, die du selbst herstellst und direkt verkaufen möchtest. Mit einem Preis wird automatisch ein sicherer PayPal-Button angezeigt.",
+                            "Produktdarstellung bearbeiten. Preise, Zahlungslinks und bezahlte Downloads werden in Supabase verwaltet.")
     (destination / "admin.html").write_text(page, encoding="utf-8")
 
     # Compile the live view functions together with the PocketBase adapter. No live
@@ -221,17 +266,19 @@ def build_admin(source, destination):
                                           encoding="utf-8")
 
 
-def build_admin_app(source, destination):
+def build_admin_app(source, destination, origin=None):
     install = template_section(source, r'<script>\s*(\(\(\) => \{\s*let installPrompt.*?^\}\)\(\);)\s*</script>', "admin app install")
     install = replace(install, r'^  if \(document\.body\.classList\.contains\("admin-mode"\)\) window\.__findoraEnableApp\(\);$',
                       "", "automatic app setup", re.M)
     (destination / "staging-install.js").write_text(install, encoding="utf-8")
     manifest = (ROOT / "manifest.webmanifest").read_text(encoding="utf-8")
     manifest = manifest.replace("./?app=1#admin-panel", "./admin.html").replace("./?customer=1", "./index.html")
-    manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
+    if not origin:
+        manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
     (destination / "manifest.webmanifest").write_text(manifest, encoding="utf-8")
     service_worker = (ROOT / "service-worker.js").read_text(encoding="utf-8")
-    service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', 'const CACHE = "findora-staging-app-v2";', "staging app cache", re.M)
+    cache = "findora-production-app-v1" if origin else "findora-staging-app-v2"
+    service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', f'const CACHE = "{cache}";', "app cache", re.M)
     service_worker = service_worker.replace('"./links.html"', '"./links.html", "./admin.html", "./admin.css", "./admin.js", '
                                             '"./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')
     service_worker = replace(service_worker, r'^  if \(url.origin !== self.location.origin\) return;$',
@@ -243,16 +290,16 @@ def build_admin_app(source, destination):
     (destination / "service-worker.js").write_text(service_worker, encoding="utf-8")
 
 
-def build(destination):
+def build(destination, origin=None):
     destination.mkdir(parents=True, exist_ok=True)
-    for name, adapt in (("index", home), ("disney", disney), ("produkte", digital)):
+    for name, adapt in (("index", home), ("disney", disney), ("produkte", digital_checkout if origin else digital)):
         source = (ROOT / f"{name}.html").read_text(encoding="utf-8")
-        (destination / f"{name}.html").write_text(adapt(shared_template(source, name)), encoding="utf-8")
+        (destination / f"{name}.html").write_text(adapt(shared_template(source, name, origin)), encoding="utf-8")
     shutil.copyfile(STAGING / "catalog.js", destination / "staging-catalog.js")
     shutil.copyfile(STAGING / "preview.css", destination / "staging-preview.css")
     homepage = (ROOT / "index.html").read_text(encoding="utf-8")
-    build_admin(homepage, destination)
-    build_admin_app(homepage, destination)
+    build_admin(homepage, destination, origin)
+    build_admin_app(homepage, destination, origin)
     shutil.copyfile(STAGING / "admin.css", destination / "admin.css")
     optimize = template_section(homepage, r"^  async function optimizeImage\([^\n]+$", "image optimization")
     site = (STAGING / "site.js").read_text(encoding="utf-8").replace("    /* product image optimization */", optimize)
@@ -263,7 +310,58 @@ def build(destination):
     shutil.copytree(ROOT / "assets" / "disney-decor", destination / "assets" / "disney-decor", dirs_exist_ok=True)
 
 
+def production_caddy(destination, host):
+    staging = (STAGING / "Caddyfile").read_text(encoding="utf-8")
+    routes = template_section(staging, r"(^\s*@catalog \{.*?^\s*handle /api/\* \{\s*respond 404\s*\})",
+                              "PocketBase proxy routes").strip("\n")
+    checkout = (ROOT / "produkte.html").read_text(encoding="utf-8")
+    payment_origin = template_section(checkout, r'^      const SUPABASE_URL = "(https://[a-z0-9]+\.supabase\.co)";$', "payment origin")
+    template = (PRODUCTION / "Caddyfile").read_text(encoding="utf-8")
+    template = template.replace("PUBLIC_HOSTNAME", host).replace("PAYMENT_ORIGIN", payment_origin)
+    destination.write_text(template.replace("# POCKETBASE_ROUTES", routes.replace("127.0.0.1:8090", "127.0.0.1:8091")), encoding="utf-8")
+
+
+def legacy_redirects(destination, origin):
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in ("index", "disney", "produkte", "admin", "links", "404"):
+        path = "/" if name in ("index", "404") else f"/{name}.html"
+        target = origin + path
+        redirect = json.dumps(target)
+        if name == "index":
+            redirect = f'(location.hash === "#admin-panel" ? {json.dumps(origin + "/admin.html")} : {redirect})'
+        html = f'''<!doctype html>
+<html lang="de"><meta charset="utf-8"><meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex"><title>Findora Home</title>
+<a href="{target}">Weiter zu Findora Home</a>
+<script>location.replace({redirect} + location.search + location.hash);</script></html>
+'''
+        (destination / f"{name}.html").write_text(html, encoding="utf-8")
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build the private Findora catalog preview from the live templates.")
+    parser = argparse.ArgumentParser(description="Build Findora from the existing templates for PocketBase staging or production.")
     parser.add_argument("destination", type=Path)
-    build(parser.parse_args().destination)
+    parser.add_argument("--public-origin", help="production HTTPS origin, without a path")
+    parser.add_argument("--caddy-output", type=Path, help="production Caddy site config, outside the website directory")
+    parser.add_argument("--legacy-output", type=Path, help="optional redirects for the old GitHub Pages URL")
+    args = parser.parse_args()
+    if bool(args.public_origin) != bool(args.caddy_output):
+        parser.error("--public-origin and --caddy-output must be supplied together")
+    if args.legacy_output and not args.public_origin:
+        parser.error("--legacy-output requires --public-origin")
+    if args.public_origin:
+        label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+        hostname = re.fullmatch(rf"https://({label}(?:\.{label})+)/?", args.public_origin)
+        if not hostname:
+            parser.error("--public-origin must be an HTTPS domain without a path, credentials, or port")
+        if args.caddy_output.resolve().is_relative_to(args.destination.resolve()):
+            parser.error("the Caddy config must be outside the website directory")
+        if args.legacy_output and (args.legacy_output.resolve().is_relative_to(args.destination.resolve()) or
+                                   args.destination.resolve().is_relative_to(args.legacy_output.resolve()) or
+                                   args.caddy_output.resolve().is_relative_to(args.legacy_output.resolve())):
+            parser.error("legacy redirects, website files and Caddy config must have separate destinations")
+        production_caddy(args.caddy_output, hostname[1])
+    origin = args.public_origin.rstrip("/") if args.public_origin else None
+    build(args.destination, origin)
+    if args.legacy_output:
+        legacy_redirects(args.legacy_output, origin)

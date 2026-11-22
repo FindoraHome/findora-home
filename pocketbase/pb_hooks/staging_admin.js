@@ -117,8 +117,10 @@ function save(e) {
     }
 
     const image = uploadedFile(e, "image", input.replace_image);
-    const document = collection === "own_products" ? uploadedFile(e, "document", input.replace_document) : null;
-    if (isNew && (!image || (collection === "own_products" && !document))) {
+    const paidItem = collection === "own_products" && $os.getenv("FINDORA_SITE_MODE") === "production";
+    if (paidItem && input.replace_document === true) throw new BadRequestError("Bezahlte Downloads werden in Supabase verwaltet.");
+    const document = collection === "own_products" && !paidItem ? uploadedFile(e, "document", input.replace_document) : null;
+    if (isNew && (!image || (collection === "own_products" && !paidItem && !document))) {
         throw new BadRequestError("Bitte wähle ein Produktbild und bei eigenen Produkten eine PDF-Datei aus.");
     }
     if (image && input.remove_image === true) throw new BadRequestError("Ungültige Bildänderung.");
@@ -154,7 +156,7 @@ function save(e) {
                 }
             }
             product.set("featured", featured);
-        } else {
+        } else if (!paidItem) {
             if (input.price_cents !== null && (!Number.isSafeInteger(input.price_cents) || input.price_cents < 0 || input.price_cents > 9999999999)) {
                 throw new BadRequestError("Bitte gib einen gültigen Preis ein.");
             }

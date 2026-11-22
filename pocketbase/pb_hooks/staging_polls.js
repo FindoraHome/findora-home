@@ -164,7 +164,8 @@ function visitor(e) {
 
 function queueResults(app) {
     if (!$os.getenv("FINDORA_STAGING_DOLLY_TELEGRAM_BOT_TOKEN")) return;
-    const records = app.findRecordsByFilter("staging_polls", "legacy_id = '' && (active = false || ends_at <= @now)", "ends_at", 0, 0);
+    const scope = $os.getenv("FINDORA_SITE_MODE") === "production" ? "" : "legacy_id = '' && ";
+    const records = app.findRecordsByFilter("staging_polls", `${scope}(active = false || ends_at <= @now)`, "ends_at", 0, 0);
     const delivery = require(`${__hooks}/staging_delivery.js`);
     for (const record of records) {
         const poll = adminPoll(app, record);
