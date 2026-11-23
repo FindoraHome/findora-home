@@ -318,6 +318,20 @@
     }
   }
 
+  async function resumeSession() {
+    try {
+      await api.refreshSession();
+    } catch {
+      // The saved token can still be used if refresh is unavailable.
+    }
+    if (!api.token()) return;
+    try {
+      await loadAdminData();
+    } catch (error) {
+      if (api.token()) showLogin(error.message, false);
+    }
+  }
+
   function startAdmin() {
     configurePreview();
     window.addEventListener("findora-session-expired", () => showLogin("Bitte melde dich erneut an."));
@@ -329,10 +343,6 @@
     el("admin-product-search").oninput = renderProducts;
     el("admin-product-sort").onchange = renderProducts;
     el("admin-product-visibility").onchange = renderProducts;
-    if (api.token()) {
-      loadAdminData().catch(error => {
-        if (api.token()) showLogin(error.message, false);
-      });
-    }
+    if (api.token()) void resumeSession();
     else showLogin();
   }

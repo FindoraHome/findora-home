@@ -301,7 +301,7 @@ def build_admin_app(source, destination, origin=None):
         manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
     (destination / "manifest.webmanifest").write_text(manifest, encoding="utf-8")
     service_worker = (ROOT / "service-worker.js").read_text(encoding="utf-8")
-    cache = "findora-production-app-v2" if origin else "findora-staging-app-v3"
+    cache = "findora-production-app-v3" if origin else "findora-staging-app-v4"
     service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', f'const CACHE = "{cache}";', "app cache", re.M)
     service_worker = service_worker.replace('"./links.html"', '"./links.html", "./admin.html", "./admin.css", "./admin.js", '
                                             '"./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')

@@ -153,6 +153,12 @@
             saveSession({ token: result.token, email });
             return result.token;
         },
+        async refreshSession() {
+            const previous = token();
+            if (!previous) return;
+            const result = await request(`${authPath}/auth-refresh`, { method: "POST" }, true);
+            if (token() === previous) saveSession({ token: result.token, email: sessionEmail() });
+        },
         clearSession: () => saveSession(null),
     };
 })();
