@@ -1,9 +1,44 @@
 (() => {
     const apiOrigin = "";
     const apiUrl = path => apiOrigin + path;
-    const tokenKey = "findora-staging-admin";
-    const token = () => sessionStorage.getItem(tokenKey) || "";
-    const sessionEmail = () => sessionStorage.getItem(`${tokenKey}-email`) || "";
+    const sessionKey = `findora-admin-session:${apiOrigin}`;
+    const authPath = "/api/collections/findora_admins";
+    let temporarySession = null;
+    let storageAvailable = true;
+
+    function session() {
+        if (storageAvailable) {
+            try {
+                return JSON.parse(localStorage.getItem(sessionKey));
+            } catch {
+                storageAvailable = false;
+            }
+        }
+        return temporarySession;
+    }
+
+    function saveSession(value) {
+        temporarySession = value;
+        if (!storageAvailable) return;
+        try {
+            if (value) localStorage.setItem(sessionKey, JSON.stringify(value));
+            else localStorage.removeItem(sessionKey);
+        } catch {
+            storageAvailable = false;
+        }
+    }
+
+    const token = () => session()?.token || "";
+    const sessionEmail = () => session()?.email || "";
+    try {
+        const previous = sessionStorage.getItem("findora-staging-admin");
+        if (previous && !token()) saveSession({ token: previous, email: sessionStorage.getItem("findora-staging-admin-email") });
+        sessionStorage.removeItem("findora-staging-admin");
+        sessionStorage.removeItem("findora-staging-admin-email");
+    } catch { /* The browser can restrict storage on some devices. */ }
+    window.addEventListener("storage", event => {
+        if (event.key === sessionKey && !event.newValue) window.dispatchEvent(new Event("findora-session-expired"));
+    });
     const json = payload => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     /* product image optimization */
 
@@ -13,7 +48,10 @@
         if (session) headers.set("Authorization", session);
         const response = await fetch(apiUrl(path), { ...options, headers });
         const result = await response.json().catch(() => ({}));
-        if (response.status === 401 && session && session === token()) window.dispatchEvent(new Event("findora-session-expired"));
+        if (response.status === 401 && session && session === token()) {
+            saveSession(null);
+            window.dispatchEvent(new Event("findora-session-expired"));
+        }
         if (!response.ok) throw new Error(result.message || "Die Anfrage konnte nicht abgeschlossen werden.");
         return result;
     }
@@ -111,14 +149,16 @@
         adminPolls: (action, input) => rpc("staging-admin/polls", action, input, true),
         adminRequest, json, productPath, apiUrl, fileUrl, saveProduct, token, sessionEmail,
         async signIn(email, password) {
-            const result = await request("/api/collections/findora_admins/auth-with-password", json({ identity: email, password }));
-            sessionStorage.setItem(tokenKey, result.token);
-            sessionStorage.setItem(`${tokenKey}-email`, email);
+            const result = await request(`${authPath}/auth-with-password`, json({ identity: email, password }));
+            saveSession({ token: result.token, email });
             return result.token;
         },
-        clearSession() {
-            sessionStorage.removeItem(tokenKey);
-            sessionStorage.removeItem(`${tokenKey}-email`);
+        async refreshSession() {
+            const previous = token();
+            if (!previous) return;
+            const result = await request(`${authPath}/auth-refresh`, { method: "POST" }, true);
+            if (token() === previous) saveSession({ token: result.token, email: sessionEmail() });
         },
+        clearSession: () => saveSession(null),
     };
 })();

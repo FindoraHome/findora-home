@@ -14,17 +14,14 @@
     collection: "own_products", form: el("admin-own-product-form"), button: el("admin-own-save"),
     fill: fillEditOwnProduct, reset: resetOwnProductForm, input: name => el(`admin-own-${name}`),
   };
-  let token = api.token();
-
-  function showLogin(message = "") {
-    token = "";
+  function showLogin(message = "", forgetSession = true) {
     admin.isAdmin = false;
-    api.clearSession();
+    if (forgetSession) api.clearSession();
     panel.classList.remove("open");
     el("admin-logout-button").hidden = true;
     el("admin-login-button").hidden = false;
     el("app-install-button").hidden = true;
-    void window.__findoraDisableApp?.();
+    if (forgetSession) void window.__findoraDisableApp?.();
     el("login-backdrop").classList.add("open");
     const alert = el("login-notice");
     alert.textContent = message;
@@ -61,9 +58,9 @@
   }
 
   async function loadAdminData() {
-    const currentToken = token;
+    const email = api.sessionEmail();
     const data = await request("catalog");
-    if (currentToken !== token) return;
+    if (!api.token() || email !== api.sessionEmail()) return;
     const products = data.products.map(product => viewProduct(product, product.collection));
     admin.products = products.filter(product => product.collection === "products");
     admin.ownProducts = products.filter(product => product.collection === "own_products")
@@ -103,7 +100,7 @@
 
   function clearEditor(editor) {
     editor.product = null;
-    editor.selection = null;
+    editor.selection = {};
     editor.reset();
     editor.button.disabled = false;
   }
@@ -212,8 +209,8 @@
         if (!production) changes.purchase_url = input("paypal").value;
         documentFile = input("file").files[0];
       }
-      const saved = await writeProduct(editor.collection, product, changes, input("image").files[0], documentFile);
-      if (editor.selection === selection) showProduct(editor, saved);
+      await writeProduct(editor.collection, product, changes, input("image").files[0], documentFile);
+      if (editor.selection === selection) clearEditor(editor);
       await loadAdminData();
       notice(production ? "Änderungen gespeichert." : "Änderungen in der Vorschau gespeichert.", "success");
     } catch (error) {
@@ -310,14 +307,28 @@
     const email = el("login-email").value.trim();
     button.disabled = true;
     try {
-      token = await api.signIn(email, el("login-password").value);
+      await api.signIn(email, el("login-password").value);
       localStorage.setItem("findora-admin-device", "1");
       loginForm.reset();
       await loadAdminData();
     } catch (error) {
-      showLogin(error.message);
+      showLogin(error.message, !api.token());
     } finally {
       button.disabled = false;
+    }
+  }
+
+  async function resumeSession() {
+    try {
+      await api.refreshSession();
+    } catch {
+      // The saved token can still be used if refresh is unavailable.
+    }
+    if (!api.token()) return;
+    try {
+      await loadAdminData();
+    } catch (error) {
+      if (api.token()) showLogin(error.message, false);
     }
   }
 
@@ -332,6 +343,6 @@
     el("admin-product-search").oninput = renderProducts;
     el("admin-product-sort").onchange = renderProducts;
     el("admin-product-visibility").onchange = renderProducts;
-    if (token) loadAdminData().catch(error => showLogin(error.message));
+    if (api.token()) void resumeSession();
     else showLogin();
   }
