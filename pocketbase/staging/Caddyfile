@@ -32,7 +32,7 @@ http://127.0.0.1:8100 {
 
 	@stagingAdmin {
 		method GET POST DELETE
-		path /api/collections/findora_admins/auth-with-password /api/findora/staging-admin/catalog /api/findora/staging-admin/products/* /api/findora/staging-admin/polls/* /api/findora/staging-admin/links /api/findora/staging-admin/taxonomy/* /api/findora/staging-admin/duplicate/* /api/findora/staging-admin/site/* /api/findora/staging-admin/link-tools/* /api/findora/staging-admin/delivery/*
+		path /api/collections/findora_admins/auth-with-password /api/collections/findora_admins/auth-refresh /api/findora/staging-admin/catalog /api/findora/staging-admin/products/* /api/findora/staging-admin/polls/* /api/findora/staging-admin/links /api/findora/staging-admin/taxonomy/* /api/findora/staging-admin/duplicate/* /api/findora/staging-admin/site/* /api/findora/staging-admin/link-tools/* /api/findora/staging-admin/delivery/*
 	}
 	handle @stagingAdmin {
 		reverse_proxy 127.0.0.1:8090 {
