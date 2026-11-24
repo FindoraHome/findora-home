@@ -98,16 +98,32 @@
     }
   }
 
+  function updateImagePreview(editor) {
+    const file = editor.input("image").files[0];
+    if (editor.previewUrl) URL.revokeObjectURL(editor.previewUrl);
+    editor.previewUrl = file ? URL.createObjectURL(file) : "";
+    const src = editor.previewUrl || (editor.product ? api.fileUrl(editor.collection, editor.product) : "");
+    const preview = editor.input("preview");
+    if (src) preview.src = src;
+    else preview.removeAttribute("src");
+    preview.hidden = !src;
+    const remove = editor.input("remove-image");
+    remove.textContent = file ? "Auswahl entfernen" : "Bild löschen";
+    remove.hidden = !src;
+  }
+
   function clearEditor(editor) {
     editor.product = null;
     editor.selection = {};
     editor.reset();
+    updateImagePreview(editor);
     editor.button.disabled = false;
   }
 
   function showProduct(editor, product) {
     editor.product = product;
     editor.fill(viewProduct(product, editor.collection));
+    updateImagePreview(editor);
     if (editor === affiliate) el("admin-normal-link").value = product.normal_link || "";
     else el("admin-own-file-name").textContent = "Noch keine Datei ausgewählt.";
     editor.button.disabled = false;
@@ -288,8 +304,14 @@
     el("admin-notice").setAttribute("role", "status");
     for (const editor of [affiliate, digital]) {
       editor.form.onsubmit = event => saveEditor(event, editor);
+      editor.input("image").onchange = () => updateImagePreview(editor);
       editor.input("cancel").onclick = () => clearEditor(editor);
       editor.input("remove-image").onclick = async () => {
+        if (editor.input("image").files[0]) {
+          editor.input("image").value = "";
+          updateImagePreview(editor);
+          return;
+        }
         if (!editor.product || !confirm("Dieses Produktbild wirklich löschen?")) return;
         const product = editor.product;
         await catalogAction(async () => {
