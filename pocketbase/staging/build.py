@@ -218,6 +218,18 @@ def build_admin(source, destination, origin=None):
     }
     template = (STAGING / "admin.html").read_text(encoding="utf-8")
     page = re.sub(r"<!-- (styles|header|panel|login) -->", lambda match: sections[match[1]], template)
+    customer_link = '<a class="admin-btn" href="?customer=1">Kundenansicht</a>'
+    page = replace(page, re.escape(customer_link),
+                   customer_link + '<a class="admin-btn" href="#abstimmungsergebnisse">Abstimmungsergebnisse</a>'
+                   '<a class="admin-btn" href="#admin-search-stats">Suchverlauf</a>', "admin shortcuts")
+    page = replace(page, r'<h3>Gespeicherte Abstimmungen und Ergebnisse</h3>',
+                   '<div class="link-check-head"><h3 id="abstimmungsergebnisse" tabindex="-1">Gespeicherte Abstimmungen und Ergebnisse</h3>'
+                   '<button id="refresh-admin-poll-results" class="admin-btn" type="button">Ergebnisse aktualisieren</button></div>',
+                   "poll results controls")
+    page = replace(page, r'<h3>Suchverlauf</h3>',
+                   '<div class="link-check-head"><h3>Suchverlauf</h3>'
+                   '<button id="reset-search-history" class="admin-btn danger" type="button">Suchverlauf löschen</button></div>'
+                   '<p id="search-history-status" class="admin-note" role="status" hidden></p>', "search history controls")
     if origin:
         page = page.replace('<html lang="de">', '<html lang="de" data-findora-mode="production">')
         page = page.replace("Findora Home · Vorschauverwaltung", "Findora Home · Verwaltung")
@@ -267,9 +279,9 @@ def build_admin(source, destination, origin=None):
         if name in poll_functions:
             function = function.replace("client.rpc(", "pollRpc(")
             function = function.replace("Promise.all([loadAdminPolls(), loadActivePoll()])", "loadAdminPolls()")
-            function = function.replace("if (!admin.isAdmin) return;", "const session = token; if (!session) return;")
+            function = function.replace("if (!admin.isAdmin) return;", "const session = api.token(); if (!session) return;")
             function = function.replace('await pollRpc("get_admin_polls");',
-                                        'await pollRpc("get_admin_polls"); if (session !== token) return;')
+                                        'await pollRpc("get_admin_polls"); if (session !== api.token()) return;')
             function = function.replace(" void loadVacationSettings();", "")
         if name == "saveVacationSettings":
             function = function.replace(" await loadVacationNotice();", "")
@@ -301,7 +313,7 @@ def build_admin_app(source, destination, origin=None):
         manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
     (destination / "manifest.webmanifest").write_text(manifest, encoding="utf-8")
     service_worker = (ROOT / "service-worker.js").read_text(encoding="utf-8")
-    cache = "findora-production-app-v4" if origin else "findora-staging-app-v5"
+    cache = "findora-production-app-v5" if origin else "findora-staging-app-v6"
     service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', f'const CACHE = "{cache}";', "app cache", re.M)
     service_worker = service_worker.replace('"./links.html"', '"./links.html", "./admin.html", "./admin.css", "./admin.js", '
                                             '"./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')
