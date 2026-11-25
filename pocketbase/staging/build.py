@@ -230,6 +230,8 @@ def build_admin(source, destination, origin=None):
                    '<div class="link-check-head"><h3>Suchverlauf</h3>'
                    '<button id="reset-search-history" class="admin-btn danger" type="button">Suchverlauf löschen</button></div>'
                    '<p id="search-history-status" class="admin-note" role="status" hidden></p>', "search history controls")
+    page = replace(page, r'id="stats-last30">0</span><span class="admin-stat-label">Letzte 30 Tage',
+                   'id="stats-month">0</span><span class="admin-stat-label">Dieser Monat', "monthly visit label")
     if origin:
         page = page.replace('<html lang="de">', '<html lang="de" data-findora-mode="production">')
         page = page.replace("Findora Home · Vorschauverwaltung", "Findora Home · Verwaltung")
@@ -267,6 +269,10 @@ def build_admin(source, destination, origin=None):
             r"visibility\.onclick = async \(\) => \{.*?; \};":
                 'visibility.onclick = () => toggleProductVisibility(product, "own_products");',
         },
+        "loadVisitorStats": {
+            r'admin\.stats = stats;': 'admin.stats = stats; scheduleVisitorStatsRefresh();',
+            r'el\("stats-last30"\)\.textContent = Number\(stats\.last30': 'el("stats-month").textContent = Number(stats.month',
+        },
     }
     functions = []
     for name in shared_functions + poll_functions + site_functions:
@@ -296,7 +302,11 @@ def build_admin(source, destination, origin=None):
                     r'^  document\.querySelectorAll\("\.admin-history-toggle"\)[^\n]+$',
                     r'^  document\.querySelectorAll\("\.admin-history-tab"\)[^\n]+$',
                     r'^  const refreshStatsButton = [^\n]+$'):
-        functions.append(template_section(source, pattern, "stats controls"))
+        function = template_section(source, pattern, "stats controls")
+        if function.startswith("  window.__findoraDownloadStats = "):
+            function = replace(function, r'"Letzte 30 Tage: " \+ Number\(stats\.last30',
+                               '"Dieser Monat: " + Number(stats.month', "monthly visit PDF label")
+        functions.append(function)
     adapter = (STAGING / "admin.js").read_text(encoding="utf-8")
     (destination / "admin.js").write_text("(() => {\n" + adapter + "\n" + "\n".join(functions) + "\n  startAdmin();\n})();\n",
                                           encoding="utf-8")
@@ -313,7 +323,7 @@ def build_admin_app(source, destination, origin=None):
         manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
     (destination / "manifest.webmanifest").write_text(manifest, encoding="utf-8")
     service_worker = (ROOT / "service-worker.js").read_text(encoding="utf-8")
-    cache = "findora-production-app-v5" if origin else "findora-staging-app-v6"
+    cache = "findora-production-app-v6" if origin else "findora-staging-app-v7"
     service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', f'const CACHE = "{cache}";', "app cache", re.M)
     service_worker = service_worker.replace('"./links.html"', '"./links.html", "./admin.html", "./admin.css", "./admin.js", '
                                             '"./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')

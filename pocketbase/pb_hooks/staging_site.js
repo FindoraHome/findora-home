@@ -32,6 +32,12 @@ function berlinDate(value) {
     return delivery.berlinTime(new Date(value).toISOString()).format("2006-01-02");
 }
 
+function berlinMidnight(date) {
+    // Berlin's offset at 00:00 UTC also applies at the start of this local date.
+    const offset = delivery.berlinTime(`${date}T00:00:00Z`).format("-07:00");
+    return new Date(`${date}T00:00:00${offset}`).toISOString();
+}
+
 function vacation(app) {
     const value = getSetting(app, "vacation_mode") || {};
     const today = berlinDate(Date.now());
@@ -85,15 +91,23 @@ function stats(app) {
     const visits = readEvents(app, "visit");
     const clicks = readEvents(app, "click");
     const likes = readEvents(app, "like");
-    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+    const currentTime = Date.now();
+    const cutoff = new Date(currentTime - 30 * 86400000).toISOString();
     const searches = readEvents(app, "search").filter(record => dateValue(record, "occurred_at") >= cutoff);
     const productTotals = (records, label) => countBy(records, "product").filter(([id]) => products.has(id))
         .map(([id, count]) => ({ ...products.get(id), [label]: count }));
-    const today = berlinDate(Date.now());
+    const today = berlinDate(currentTime);
+    const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+    const dayStart = berlinMidnight(today);
+    const monthStart = berlinMidnight(`${today.slice(0, 7)}-01`);
+    const dayEnd = berlinMidnight(tomorrow);
+    const visitTimes = visits.map(record => dateValue(record, "occurred_at"));
     return {
         total: visits.length,
-        today: visits.filter(record => berlinDate(dateValue(record, "occurred_at")) === today).length,
-        last30: visits.filter(record => dateValue(record, "occurred_at") >= cutoff).length,
+        today: visitTimes.filter(time => time >= dayStart && time < dayEnd).length,
+        month: visitTimes.filter(time => time >= monthStart && time < dayEnd).length,
+        next_day_in_ms: Date.parse(dayEnd) - currentTime,
+        last30: visitTimes.filter(time => time >= cutoff).length,
         products: productTotals(clicks, "clicks"), likes: productTotals(likes, "likes"),
         recent_visits: visits.slice(0, 150).map(row => ({ visited_at: dateValue(row, "occurred_at") })),
         recent_clicks: clicks.filter(row => products.has(row.getString("product"))).slice(0, 150).map(row => ({
@@ -163,9 +177,7 @@ function trafficNotice(app, click, productId, occurredAt) {
         return `🛒 Produkt angeklickt\n📦 ${name}\n📊 Klicks für dieses Produkt: ${productClicks}\n📈 Klicks insgesamt: ${totalClicks}\n🕒 ${time}`;
     }
     const date = berlinDate(occurredAt);
-    // Berlin's clock changes after midnight. Use the offset at the start of this date.
-    const offset = delivery.berlinTime(`${date}T00:00:00Z`).format("-07:00");
-    const since = new DateTime(`${date}T00:00:00${offset}`).string();
+    const since = new DateTime(berlinMidnight(date)).string();
     const visits = $dbx.hashExp({ kind: "visit" });
     const total = app.countRecords(events, visits);
     const today = app.countRecords(events, visits, $dbx.exp("occurred_at >= {:since}", { since }));

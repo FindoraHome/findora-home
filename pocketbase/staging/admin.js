@@ -4,6 +4,7 @@
   const production = document.documentElement.dataset.findoraMode === "production";
   const { admin: client, adminRequest: request, adminPolls: pollRpc, productPath, saveProduct: writeProduct } = api;
   let linkCheckPromise = null;
+  let visitorStatsTimer;
   const loginForm = el("login-form");
   const panel = el("admin-panel");
   const affiliate = {
@@ -15,6 +16,7 @@
     fill: fillEditOwnProduct, reset: resetOwnProductForm, input: name => el(`admin-own-${name}`),
   };
   function showLogin(message = "", forgetSession = true) {
+    clearTimeout(visitorStatsTimer);
     admin.isAdmin = false;
     if (forgetSession) api.clearSession();
     panel.classList.remove("open");
@@ -96,6 +98,18 @@
     } catch (error) {
       if (admin.isAdmin) notice(error.message, "error");
     }
+  }
+
+  function scheduleVisitorStatsRefresh(delay = admin.stats?.next_day_in_ms) {
+    clearTimeout(visitorStatsTimer);
+    if (!admin.isAdmin || !Number.isFinite(delay)) return;
+    visitorStatsTimer = setTimeout(async () => {
+      try {
+        await loadVisitorStats();
+      } catch {
+        scheduleVisitorStatsRefresh(60000);
+      }
+    }, Math.max(1000, delay));
   }
 
   async function resetSearchHistory(event) {
