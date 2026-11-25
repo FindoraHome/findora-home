@@ -268,6 +268,9 @@ function admin(e) {
             else write(app, messages, { is_read: input.is_read === true }, record);
             break;
         }
+        case "reset_search_history":
+            app.db().newQuery("DELETE FROM staging_site_events WHERE kind = 'search'").execute();
+            break;
         case "reset_page_view_stats":
         case "reset_product_click_stats": {
             const clicks = action === "reset_product_click_stats";

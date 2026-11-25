@@ -98,6 +98,25 @@
     }
   }
 
+  async function resetSearchHistory(event) {
+    if (!confirm("Alle gespeicherten Suchanfragen und den Suchverlauf löschen?")) return;
+    const button = event.currentTarget;
+    const status = el("search-history-status");
+    button.disabled = true;
+    status.hidden = true;
+    try {
+      const result = await client.rpc("reset_search_history");
+      if (result.error) throw result.error;
+      await loadSearchStatsAdmin();
+      status.textContent = "Der Suchverlauf wurde gelöscht.";
+    } catch (error) {
+      status.textContent = `Suchverlauf konnte nicht gelöscht werden. ${error.message}`;
+    } finally {
+      status.hidden = false;
+      button.disabled = false;
+    }
+  }
+
   function updateImagePreview(editor) {
     const file = editor.input("image").files[0];
     if (editor.previewUrl) URL.revokeObjectURL(editor.previewUrl);
@@ -281,12 +300,14 @@
     }
     el("contact-enabled-toggle").onchange = toggleContactEnabled;
     el("refresh-contact-messages").onclick = loadContactMessagesAdmin;
+    el("reset-search-history").onclick = resetSearchHistory;
     el("vacation-form").onsubmit = saveVacationSettings;
     el("amazon-report-button").onclick = () => el("amazon-report-file").click();
     el("amazon-report-file").onchange = event => {
       if (event.target.files[0]) void importAmazonReport(event.target.files[0]);
     };
     el("admin-polls").hidden = false;
+    el("refresh-admin-poll-results").onclick = loadAdminPolls;
     el("admin-poll-form").onsubmit = createAdminPoll;
     el("admin-poll-add-option").onclick = () => addAdminPollOption();
     resetAdminPollForm();
