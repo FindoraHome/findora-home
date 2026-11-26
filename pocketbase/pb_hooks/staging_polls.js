@@ -69,13 +69,22 @@ function duration(value) {
     return value * day;
 }
 
-function create(app, input) {
+function pollContent(input, previous = null) {
     const question = typeof input.p_question === "string" ? input.p_question.trim() : "";
     const questionLength = Array.from(question).length;
     if (questionLength < 3 || questionLength > 300) throw new BadRequestError("Bitte eine gültige Frage eintragen.");
     const answers = input.p_options;
     const freeText = input.p_free_text === true;
-    if (!freeText && (!Array.isArray(answers) || answers.length < 2 || answers.length > 50)) throw new BadRequestError("Bitte zwei bis fünfzig Antworten eintragen.");
+    if (previous) {
+        const sameMode = previous.some(option => option.id === 0) === freeText;
+        const sameOptions = Array.isArray(answers) && answers.length === previous.length &&
+            previous.every((option, index) => answers[index]?.id === option.id);
+        if (!sameMode || (!freeText && !sameOptions)) {
+            throw new BadRequestError("Antwortmöglichkeiten einer laufenden Abstimmung müssen erhalten bleiben.");
+        }
+    } else if (!freeText && (!Array.isArray(answers) || answers.length < 2 || answers.length > 50)) {
+        throw new BadRequestError("Bitte zwei bis fünfzig Antworten eintragen.");
+    }
     const options = freeText ? [{ id: 0, label: "", votes: 0 }] : answers.map((answer, index) => {
         const value = typeof answer === "string" ? answer : answer?.label;
         const label = typeof value === "string" ? value.trim() : "";
@@ -84,9 +93,15 @@ function create(app, input) {
         const uploadedImage = image_url.length <= 40000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image_url);
         const linkedImage = image_url.length <= 1000 && /^https:\/\/[^\s]+$/i.test(image_url);
         if (image_url && !uploadedImage && !linkedImage) throw new BadRequestError("Ungültiges oder zu großes Antwortbild.");
-        return { id: index + 1, label, ...(image_url ? { image_url } : {}), votes: 0 };
+        const original = previous?.[index];
+        return { id: original?.id ?? index + 1, label, ...(image_url ? { image_url } : {}), votes: original?.votes ?? 0 };
     });
     if (JSON.stringify(options).length > 900000) throw new BadRequestError("Die Antwortbilder sind zusammen zu groß.");
+    return { question, options };
+}
+
+function create(app, input) {
+    const { question, options } = pollContent(input);
     const now = Date.now();
     const record = new Record(app.findCollectionByNameOrId("staging_polls"));
     record.set("question", question);
@@ -128,6 +143,15 @@ function admin(e) {
     e.app.runInTransaction(app => {
         const poll = findPoll(app, input.p_poll_id);
         switch (action) {
+            case "edit_site_poll": {
+                if (!poll.getBool("active") || Date.parse(poll.getString("ends_at").replace(" ", "T")) <= Date.now()) {
+                    throw new BadRequestError("Diese Abstimmung ist bereits beendet.");
+                }
+                const { question, options } = pollContent(input, pollOptions(poll));
+                poll.set("question", question);
+                poll.set("options", options);
+                break;
+            }
             case "delete_site_poll":
                 app.delete(poll);
                 return;

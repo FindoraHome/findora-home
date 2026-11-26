@@ -272,9 +272,12 @@ def build_admin(source, destination, origin=None):
     page = replace(page, r'<form id="admin-poll-form" class="admin-form">',
                    '<div class="poll-template-tools"><label for="poll-template-import">Vorlage öffnen</label>'
                    '<input id="poll-template-import" type="file" accept=".json,application/json"></div>'
-                   '<form id="admin-poll-form" class="admin-form">', "poll template import")
+                   '<form id="admin-poll-form" class="admin-form">'
+                   '<p id="poll-edit-notice" class="admin-note" hidden>Du bearbeitest die laufende Abstimmung. '
+                   'Die bisherigen Stimmen bleiben ihren Antwortmöglichkeiten zugeordnet.</p>', "poll template import")
     page = replace(page, r'Abstimmung veröffentlichen</button></form>',
-                   'Veröffentlichen</button><button id="poll-template-download" class="admin-btn" type="button">'
+                   'Veröffentlichen</button><button id="poll-edit-cancel" class="admin-btn" type="button" hidden>Bearbeiten abbrechen</button>'
+                   '<button id="poll-template-download" class="admin-btn" type="button">'
                    'Entwurf als Vorlage herunterladen</button></form>', "poll template export")
     page = replace(page, r'id="admin-poll-results" class="click-stats-list"><span class="admin-note">Noch keine Abstimmungen vorhanden\.</span></div>',
                    'id="admin-poll-results" class="click-stats-list"><span class="admin-note">Abstimmungen werden geladen …</span></div>'
@@ -304,7 +307,7 @@ def build_admin(source, destination, origin=None):
         "resetCategoryForm", "editCategory", "resetPartnerForm", "editPartner",
     )
     poll_functions = (
-        "reuseAdminPoll", "renderAdminPolls", "addPollParticipantButtons", "createAdminPoll",
+        "reuseAdminPoll", "renderAdminPolls", "addPollParticipantButtons",
         "closeAdminPoll", "changeAdminPollDuration", "changeAdminPollParticipantGoal", "deleteAdminPoll",
     )
     site_functions = (
@@ -344,30 +347,21 @@ def build_admin(source, destination, origin=None):
             function = function.replace('row.className = "admin-poll-option-row";',
                 'if (el("admin-poll-options").children.length >= 50) { notice("Bis zu 50 Antworten sind möglich.", "error"); return; } '
                 'row.className = "admin-poll-option-row"; input.dataset.pollLabel = ""; input.setAttribute("aria-label", "Antwortmöglichkeit");')
+            function = function.replace('remove.type = "button";', 'remove.type = "button"; remove.dataset.removePollOption = "";')
             function = function.replace("row.append(input, remove);",
                 'const image = document.createElement("input"); image.type = "url"; image.maxLength = 1000; '
                 'image.placeholder = "HTTPS-Bildlink (optional)"; image.setAttribute("aria-label", image.placeholder); '
                 'image.dataset.pollImage = ""; image.value = imageUrl; row.append(input, remove, image); addPollImageUpload(row, image);')
         if name == "resetAdminPollForm":
-            function = function.replace('.reset();', '.reset(); syncPollMode();')
+            function = function.replace('.reset();', '.reset(); editingPoll = null; syncPollMode(); el("admin-poll-save").textContent = "Veröffentlichen";')
         if name == "reuseAdminPoll":
+            function = function.replace('function reuseAdminPoll(poll) {', 'function reuseAdminPoll(poll) { editingPoll = null;')
             function = function.replace('addAdminPollOption(option.label || "")', 'addAdminPollOption(option.label || "", option.image_url || "")')
             function = function.replace('String(originalDays)', 'String(Number.isInteger(poll.duration_days) && poll.duration_days >= 1 && poll.duration_days <= 365 ? poll.duration_days : originalDays)')
             function = function.replace('el("admin-poll-save").textContent', 'el("poll-free-text").checked = poll.free_text === true; syncPollMode(); el("admin-poll-save").textContent')
-        if name == "createAdminPoll":
-            function = function.replace('event.preventDefault();',
-                'event.preventDefault(); if (el("admin-poll-options").querySelector("[data-uploading]")) { '
-                'notice("Bitte warte, bis das Antwortbild verarbeitet ist.", "warning"); return; }')
-            function = replace(function, r'const question = .*?, button = el\("admin-poll-save"\);',
-                'const { question, options, duration_days: days, free_text } = pollFormData(), button = el("admin-poll-save");',
-                "poll form data")
-            function = function.replace('if (options.length < 2)', 'if (!free_text && options.length < 2)')
-            function = function.replace('p_options: options,', 'p_options: options, p_free_text: free_text,')
-            function = function.replace('await loadAdminPolls();', 'await loadAdminPolls(1);')
-            function = function.replace('"Abstimmung veröffentlichen"', '"Veröffentlichen"')
         if name == "renderAdminPolls":
             function = function.replace('actions.append(reuse, duration, close, remove);',
-                'actions.append(reuse, duration, close, remove); addPollDownloads(poll, actions); renderPollResponses(poll, options);')
+                'actions.append(reuse, duration, close, remove); addPollActions(poll, actions); renderPollResponses(poll, options);')
             function = function.replace('" Stimmen";', '" Teilnahmen";')
             function = function.replace('"Erneut verwenden"', '"Als Vorlage bearbeiten"')
         if name == "saveVacationSettings":
@@ -404,7 +398,7 @@ def build_admin_app(source, destination, origin=None):
         manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
     (destination / "manifest.webmanifest").write_text(manifest, encoding="utf-8")
     service_worker = (ROOT / "service-worker.js").read_text(encoding="utf-8")
-    cache = "findora-production-app-v7" if origin else "findora-staging-app-v8"
+    cache = "findora-production-app-v8" if origin else "findora-staging-app-v9"
     service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', f'const CACHE = "{cache}";', "app cache", re.M)
     service_worker = service_worker.replace('"./links.html"', '"./links.html", "./admin.html", "./admin.css", "./admin.js", '
                                             '"./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')
