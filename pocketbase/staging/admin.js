@@ -6,6 +6,7 @@
   const pollView = new URLSearchParams(location.search).get("bereich") === "abstimmungen" || location.hash === "#abstimmungsergebnisse";
   let pollPage = 1;
   let pollRequest = 0;
+  let editingPoll = null;
 
   async function loadAdminPolls(page = pollPage) {
     const session = api.token();
@@ -32,6 +33,13 @@
     el("poll-choice-fields").querySelectorAll("input, button").forEach(control => {
       control.disabled = freeText;
     });
+    const editing = Boolean(editingPoll);
+    el("poll-free-text").disabled = editing;
+    el("admin-poll-duration").closest(".admin-field").hidden = editing;
+    el("admin-poll-add-option").hidden = editing;
+    document.querySelectorAll("[data-remove-poll-option]").forEach(button => { button.hidden = editing; });
+    el("poll-edit-notice").hidden = !editing;
+    el("poll-edit-cancel").hidden = !editing;
   }
 
   function addPollImageUpload(row, field) {
@@ -113,11 +121,40 @@
       question: el("admin-poll-question").value.trim(),
       free_text: freeText,
       duration_days: Number(el("admin-poll-duration").value),
-      options: freeText ? [] : [...el("admin-poll-options").children].map(row => ({
+      options: freeText ? [] : [...el("admin-poll-options").children].map((row, index) => ({
+        id: editingPoll?.options[index]?.id,
         label: row.querySelector("[data-poll-label]").value.trim(),
         image_url: row.querySelector("[data-poll-image]").value.trim(),
       })),
     };
+  }
+
+  async function saveAdminPoll(event) {
+    event.preventDefault();
+    if (el("admin-poll-options").querySelector("[data-uploading]")) {
+      notice("Bitte warte, bis das Antwortbild verarbeitet ist.", "error");
+      return;
+    }
+    const poll = editingPoll;
+    const session = api.token();
+    const draft = pollFormData();
+    const button = el("admin-poll-save");
+    button.disabled = true;
+    try {
+      const result = await pollRpc(poll ? "edit_site_poll" : "create_site_poll", {
+        p_poll_id: poll?.id, p_question: draft.question, p_options: draft.options,
+        p_free_text: draft.free_text, p_duration_days: draft.duration_days,
+      });
+      if (api.token() !== session) return;
+      if (result.error) throw result.error;
+      if (editingPoll === poll) resetAdminPollForm();
+      await loadAdminPolls(poll ? pollPage : 1);
+      notice(poll ? "Änderungen gespeichert. Die bisherigen Stimmen bleiben erhalten." : "Abstimmung wurde veröffentlicht.", "success");
+    } catch (error) {
+      notice(error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function downloadPollTemplate({ question, free_text, options, duration_days, created_at, ends_at }) {
@@ -142,17 +179,26 @@
     downloadPollFile("findora-abstimmung-ergebnisse.csv", "\uFEFF" + csv, "text/csv;charset=utf-8");
   }
 
-  function addPollDownloads(poll, actions) {
-    const addButton = (label, operation) => {
+  function addPollActions(poll, actions) {
+    const actionButton = (label, operation) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "admin-btn";
       button.textContent = label;
       button.onclick = operation;
-      actions.append(button);
+      return button;
     };
-    addButton("Vorlage herunterladen", () => downloadPollTemplate(poll));
-    if (!poll.free_text || poll.ended) addButton("Ergebnisse als CSV", () => downloadPollResults(poll));
+    if (!poll.ended) {
+      actions.prepend(actionButton("Online bearbeiten", () => {
+        reuseAdminPoll(poll);
+        editingPoll = poll;
+        syncPollMode();
+        el("admin-poll-save").textContent = "Änderungen speichern";
+        clearNotice();
+      }));
+    }
+    actions.append(actionButton("Vorlage herunterladen", () => downloadPollTemplate(poll)));
+    if (!poll.free_text || poll.ended) actions.append(actionButton("Ergebnisse als CSV", () => downloadPollResults(poll)));
   }
 
   async function importPollTemplate(event) {
@@ -547,7 +593,8 @@
     el("refresh-admin-poll-results").onclick = () => loadAdminPolls();
     el("polls-newer").onclick = () => loadAdminPolls(pollPage - 1);
     el("polls-older").onclick = () => loadAdminPolls(pollPage + 1);
-    el("admin-poll-form").onsubmit = createAdminPoll;
+    el("admin-poll-form").onsubmit = saveAdminPoll;
+    el("poll-edit-cancel").onclick = resetAdminPollForm;
     el("poll-free-text").onchange = syncPollMode;
     el("poll-template-import").onchange = importPollTemplate;
     el("poll-template-download").onclick = () => {
