@@ -5,10 +5,11 @@ function pollOptions(record) {
     return JSON.parse(record.getString("options"));
 }
 
-function pollInfo(record) {
+function pollInfo(record, options = pollOptions(record)) {
     return {
         id: record.id,
         question: record.getString("question"),
+        free_text: options.some(option => option.id === 0),
         ends_at: record.getString("ends_at").replace(" ", "T"),
     };
 }
@@ -21,20 +22,43 @@ function participantCount(record, votes) {
     return record.getInt("imported_participants") + votes.length;
 }
 
+function summarizeResponses(responses) {
+    const ignored = new Set("aber auch auf aus bei bin bis das dass dem den der des die dir doch ein eine einer eines für hat ich ihr ist kann kein man mehr mich mir mit nach nicht noch nur oder sehr sie sind über und uns vom von war was weil wenn wie wir wird zum zur".split(" "));
+    const counts = new Map();
+    for (const response of responses) {
+        const words = new Set(response.toLowerCase().match(/[a-zäöüß]{3,}/g) || []);
+        for (const word of words) {
+            if (!ignored.has(word)) counts.set(word, (counts.get(word) || 0) + 1);
+        }
+    }
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+}
+
 function adminPoll(app, record) {
     const votes = ballots(app, record.id);
     const options = pollOptions(record);
-    const counts = new Map(options.map(option => [option.id, option.votes]));
-    for (const ballot of votes) {
-        for (const choice of JSON.parse(ballot.getString("choices"))) counts.set(choice, counts.get(choice) + 1);
+    const info = pollInfo(record, options);
+    const ended = !record.getBool("active") || Date.parse(info.ends_at) <= Date.now();
+    const counts = new Map(options.map(option => [option.id, option.votes || 0]));
+    const responses = [];
+    if (!info.free_text || ended) {
+        for (const ballot of votes) {
+            for (const choice of JSON.parse(ballot.getString("choices"))) {
+                if (info.free_text && typeof choice === "string") responses.push(choice);
+                else if (counts.has(choice)) counts.set(choice, counts.get(choice) + 1);
+            }
+        }
     }
     return {
-        ...pollInfo(record),
+        ...info,
         active: record.getBool("active"),
+        ended,
         created_at: record.getString("created_at").replace(" ", "T"),
         participant_goal: record.getInt("participant_goal") || null,
         total_votes: participantCount(record, votes),
-        options: options.map(({ id, label }) => ({ id, label, votes: counts.get(id) })),
+        options: options.filter(option => option.id !== 0).map(({ id, label, image_url }) => ({ id, label, image_url, votes: counts.get(id) })),
+        responses,
+        summary: responses.length ? summarizeResponses(responses) : [],
     };
 }
 
@@ -50,12 +74,19 @@ function create(app, input) {
     const questionLength = Array.from(question).length;
     if (questionLength < 3 || questionLength > 300) throw new BadRequestError("Bitte eine gültige Frage eintragen.");
     const answers = input.p_options;
-    if (!Array.isArray(answers) || answers.length < 2) throw new BadRequestError("Mindestens zwei Antworten sind erforderlich.");
-    const options = answers.map((answer, index) => {
-        const label = typeof answer === "string" ? answer.trim() : "";
+    const freeText = input.p_free_text === true;
+    if (!freeText && (!Array.isArray(answers) || answers.length < 2 || answers.length > 50)) throw new BadRequestError("Bitte zwei bis fünfzig Antworten eintragen.");
+    const options = freeText ? [{ id: 0, label: "", votes: 0 }] : answers.map((answer, index) => {
+        const value = typeof answer === "string" ? answer : answer?.label;
+        const label = typeof value === "string" ? value.trim() : "";
         if (!label || Array.from(label).length > 200) throw new BadRequestError("Bitte überprüfe die Antworten.");
-        return { id: index + 1, label, votes: 0 };
+        const image_url = typeof answer?.image_url === "string" ? answer.image_url.trim() : "";
+        const uploadedImage = image_url.length <= 40000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image_url);
+        const linkedImage = image_url.length <= 1000 && /^https:\/\/[^\s]+$/i.test(image_url);
+        if (image_url && !uploadedImage && !linkedImage) throw new BadRequestError("Ungültiges oder zu großes Antwortbild.");
+        return { id: index + 1, label, ...(image_url ? { image_url } : {}), votes: 0 };
     });
+    if (JSON.stringify(options).length > 900000) throw new BadRequestError("Die Antwortbilder sind zusammen zu groß.");
     const now = Date.now();
     const record = new Record(app.findCollectionByNameOrId("staging_polls"));
     record.set("question", question);
@@ -83,8 +114,15 @@ function admin(e) {
     const action = e.request.pathValue("action");
     const input = e.requestInfo().body;
     if (action === "get_admin_polls") {
-        const records = e.app.findRecordsByFilter("staging_polls", "", "-created_at,-id", 50, 0);
-        return e.json(200, { data: records.map(record => adminPoll(e.app, record)) });
+        const page = input.p_page;
+        if (page !== undefined && (!Number.isSafeInteger(page) || page < 1 || page > 100000)) {
+            throw new BadRequestError("Ungültige Seite.");
+        }
+        const pageSize = 10;
+        const records = e.app.findRecordsByFilter("staging_polls", "", "-created_at,-id",
+            page === undefined ? 50 : pageSize + 1, page === undefined ? 0 : (page - 1) * pageSize);
+        const visible = page === undefined ? records : records.slice(0, pageSize);
+        return e.json(200, { data: visible.map(record => adminPoll(e.app, record)), has_more: page !== undefined && records.length > pageSize });
     }
     if (action === "create_site_poll") return e.json(200, { data: create(e.app, input) });
     e.app.runInTransaction(app => {
@@ -127,22 +165,30 @@ function visitor(e) {
         const voted = new Set(e.app.findRecordsByFilter("staging_poll_ballots", "voter = {:voter}", "", 0, 0, { voter })
             .map(record => record.getString("poll")));
         const polls = e.app.findRecordsByFilter("staging_polls", "active = true && ends_at > @now", "-created_at,-id", 0, 0);
-        return e.json(200, { data: polls.map(poll => ({ ...pollInfo(poll), has_voted: voted.has(poll.id),
-            options: pollOptions(poll).map(({ id, label }) => ({ id, label })) })) });
+        return e.json(200, { data: polls.map(poll => {
+            const options = pollOptions(poll);
+            return { ...pollInfo(poll, options), has_voted: voted.has(poll.id),
+                options: options.filter(option => option.id !== 0).map(({ id, label, image_url }) => ({ id, label, image_url })) };
+        }) });
     }
     if (action !== "vote_in_poll_multi") throw new NotFoundError();
     let notice;
     e.app.runInTransaction(app => {
         const poll = findPoll(app, input.p_poll_id);
-        if (!poll.getBool("active") || Date.parse(pollInfo(poll).ends_at) <= Date.now()) {
+        const options = pollOptions(poll);
+        const info = pollInfo(poll, options);
+        if (!poll.getBool("active") || Date.parse(info.ends_at) <= Date.now()) {
             throw new BadRequestError("Diese Abstimmung ist nicht mehr aktiv.");
         }
-        if (!Array.isArray(input.p_option_ids) || !input.p_option_ids.length) {
+        const response = typeof input.p_response === "string" ? input.p_response.trim() : "";
+        if (info.free_text && (!response || response.length > 1000)) throw new BadRequestError("Bitte eine Antwort mit bis zu 1.000 Zeichen eingeben.");
+        if (!info.free_text && (!Array.isArray(input.p_option_ids) || !input.p_option_ids.length || input.p_option_ids.length > options.length)) {
             throw new BadRequestError("Bitte mindestens eine Antwort auswählen.");
         }
-        const choices = [...new Set(input.p_option_ids)];
-        const options = new Set(pollOptions(poll).map(option => option.id));
-        if (!choices.every(choice => options.has(choice))) throw new BadRequestError("Eine Antwort gehört nicht zur Abstimmung.");
+        const choices = info.free_text ? [response] : [...new Set(input.p_option_ids)];
+        if (!info.free_text && !choices.every(choice => options.some(option => option.id === choice))) {
+            throw new BadRequestError("Eine Antwort gehört nicht zur Abstimmung.");
+        }
         const previous = app.findRecordsByFilter("staging_poll_ballots", "poll = {:poll} && voter = {:voter}", "", 1, 0,
             { poll: poll.id, voter });
         if (previous.length) throw new ApiError(409, "Du hast bereits abgestimmt.");
@@ -151,7 +197,7 @@ function visitor(e) {
         ballot.set("voter", voter);
         ballot.set("choices", choices);
         app.save(ballot);
-        const selected = pollOptions(poll).filter(option => choices.includes(option.id)).map(option => `• ${option.label}`);
+        const selected = info.free_text ? ["Freitextantwort gespeichert. Auswertung nach Ende der Frage."] : options.filter(option => choices.includes(option.id)).map(option => `• ${option.label}`);
         const participants = participantCount(poll, ballots(app, poll.id));
         notice = `🗳️ Neue Abstimmung\n\n❓ ${poll.getString("question")}\n✅ Gewählt:\n${selected.join("\n")}\n\n👥 Teilnehmer bisher: ${participants}\n🕒 ${delivery.telegramTime()}`;
         const goal = poll.getInt("participant_goal");
@@ -170,7 +216,7 @@ function queueResults(app) {
     const records = app.findRecordsByFilter("staging_polls", `${scope}(active = false || ends_at <= @now)`, "ends_at", 0, 0);
     for (const record of records) {
         const poll = adminPoll(app, record);
-        const options = poll.options.map(option => `• ${option.label}: ${option.votes} Stimmen`);
+        const options = poll.free_text ? [`Freitextantworten: ${poll.responses.length}. Auswertung in der Verwaltung.`] : poll.options.map(option => `• ${option.label}: ${option.votes} Stimmen`);
         const result = `📊 Abstimmung beendet\n\n❓ ${poll.question}\n\n${options.join("\n") || "Keine Stimmen abgegeben."}\n\n👥 Teilnehmer: ${poll.total_votes}\n🕒 Ende: ${delivery.telegramTime(poll.ends_at)}`;
         delivery.enqueue(app, "dolly", result, `poll-result:${poll.id}:${poll.ends_at}`);
     }

@@ -3,6 +3,214 @@
   const api = window.FindoraStagingSite;
   const production = document.documentElement.dataset.findoraMode === "production";
   const { admin: client, adminRequest: request, adminPolls: pollRpc, productPath, saveProduct: writeProduct } = api;
+  const pollView = new URLSearchParams(location.search).get("bereich") === "abstimmungen" || location.hash === "#abstimmungsergebnisse";
+  let pollPage = 1;
+  let pollRequest = 0;
+
+  async function loadAdminPolls(page = pollPage) {
+    const session = api.token();
+    if (!session) return;
+    const requestId = ++pollRequest;
+    const result = await pollRpc("get_admin_polls", { p_page: page });
+    if (session !== api.token() || requestId !== pollRequest) return;
+    if (result.error) {
+      notice("Abstimmungen konnten nicht geladen werden: " + result.error.message, "error");
+      return;
+    }
+    if (page > 1 && !result.data.length) return loadAdminPolls(page - 1);
+    pollPage = page;
+    admin.polls = result.data;
+    renderAdminPolls();
+    addPollParticipantButtons();
+    el("polls-newer").hidden = page <= 1;
+    el("polls-older").hidden = !result.has_more;
+  }
+
+  function syncPollMode() {
+    const freeText = el("poll-free-text").checked;
+    el("poll-choice-fields").hidden = freeText;
+    el("poll-choice-fields").querySelectorAll("input, button").forEach(control => {
+      control.disabled = freeText;
+    });
+  }
+
+  function addPollImageUpload(row, field) {
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/jpeg,image/png,image/webp";
+    fileInput.setAttribute("aria-label", "Antwortbild hochladen");
+    const preview = document.createElement("img");
+    preview.alt = "Vorschau des Antwortbilds";
+    preview.className = "admin-poll-image-preview";
+    preview.referrerPolicy = "no-referrer";
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "admin-btn";
+    clear.textContent = "Bild entfernen";
+    const refresh = () => {
+      const value = field.value.trim();
+      preview.hidden = !/^(https:\/\/|data:image\/jpeg;base64,)/i.test(value);
+      field.hidden = value.startsWith("data:image/jpeg;base64,");
+      clear.hidden = !value;
+      if (preview.hidden) preview.removeAttribute("src");
+      else preview.src = value;
+    };
+    field.addEventListener("input", refresh);
+    clear.onclick = () => { field.value = ""; refresh(); field.focus(); };
+    fileInput.onchange = async () => {
+      const file = fileInput.files[0];
+      if (!file || row.dataset.uploading) return;
+      row.dataset.uploading = "true";
+      try {
+        if (file.size > 15 * 1024 * 1024 || !/^image\/(jpeg|png|webp)$/.test(file.type)) {
+          throw new Error("Bitte JPG, PNG oder WebP bis 15 MB wählen.");
+        }
+        const bitmap = await createImageBitmap(file);
+        try {
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          for (const size of [360, 280, 200]) {
+            const scale = Math.min(1, size / Math.max(bitmap.width, bitmap.height));
+            canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+            canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+            context.fillStyle = "#fff";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            const value = canvas.toDataURL("image/jpeg", 0.72);
+            if (value.length <= 40000) {
+              field.value = value;
+              break;
+            }
+            if (size === 200) throw new Error("Bitte ein kleineres Bild wählen.");
+          }
+          refresh();
+        } finally {
+          bitmap.close();
+        }
+      } catch (error) {
+        notice("Antwortbild: " + error.message, "error");
+      } finally {
+        delete row.dataset.uploading;
+        fileInput.value = "";
+      }
+    };
+    row.append(fileInput, preview, clear);
+    refresh();
+  }
+
+  function downloadPollFile(filename, content, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function pollFormData() {
+    const freeText = el("poll-free-text").checked;
+    return {
+      question: el("admin-poll-question").value.trim(),
+      free_text: freeText,
+      duration_days: Number(el("admin-poll-duration").value),
+      options: freeText ? [] : [...el("admin-poll-options").children].map(row => ({
+        label: row.querySelector("[data-poll-label]").value.trim(),
+        image_url: row.querySelector("[data-poll-image]").value.trim(),
+      })),
+    };
+  }
+
+  function downloadPollTemplate({ question, free_text, options, duration_days, created_at, ends_at }) {
+    const template = { version: 1, question, free_text, duration_days, created_at, ends_at,
+      options: options.map(({ label, image_url }) => ({ label, image_url })) };
+    downloadPollFile("findora-abstimmung-vorlage.json", JSON.stringify(template, null, 2), "application/json");
+  }
+
+  function downloadPollResults(poll) {
+    const rows = [["Frage", poll.question], ["Teilnahmen", poll.total_votes]];
+    if (poll.free_text) {
+      rows.push([], ["Antwort", "Anzahl"], ...groupPollResponses(poll.responses));
+      if (poll.summary?.length) rows.push([], ["Häufiger Begriff", "Antworten mit diesem Begriff"], ...poll.summary);
+    } else {
+      rows.push([], ["Antwortmöglichkeit", "Stimmen"], ...poll.options.map(option => [option.label, option.votes]));
+    }
+    const csv = rows.map(row => row.map(value => {
+      const cell = String(value);
+      const safe = /^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(cell) ? "'" + cell : cell;
+      return '"' + safe.replaceAll('"', '""') + '"';
+    }).join(";")).join("\r\n");
+    downloadPollFile("findora-abstimmung-ergebnisse.csv", "\uFEFF" + csv, "text/csv;charset=utf-8");
+  }
+
+  function addPollDownloads(poll, actions) {
+    const addButton = (label, operation) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "admin-btn";
+      button.textContent = label;
+      button.onclick = operation;
+      actions.append(button);
+    };
+    addButton("Vorlage herunterladen", () => downloadPollTemplate(poll));
+    if (!poll.free_text || poll.ended) addButton("Ergebnisse als CSV", () => downloadPollResults(poll));
+  }
+
+  async function importPollTemplate(event) {
+    const input = event.currentTarget;
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      if (file.size > 1024 * 1024) throw new Error("Die Vorlage ist zu groß.");
+      const template = JSON.parse(await file.text());
+      if (template?.version !== 1 || typeof template.question !== "string" ||
+          !Array.isArray(template.options) || template.options.length > 50 ||
+          !template.options.every(option => typeof option?.label === "string" &&
+            (option.image_url == null || typeof option.image_url === "string"))) {
+        throw new Error("Bitte eine gültige Findora-Abstimmungsvorlage auswählen.");
+      }
+      reuseAdminPoll(template);
+    } catch (error) {
+      notice("Import fehlgeschlagen: " + error.message, "error");
+    } finally {
+      input.value = "";
+    }
+  }
+
+  function groupPollResponses(responses = []) {
+    const counts = new Map();
+    for (const response of responses) counts.set(response, (counts.get(response) || 0) + 1);
+    return [...counts].sort((a, b) => b[1] - a[1]);
+  }
+
+  function renderPollResponses(poll, container) {
+    if (!poll.free_text) return;
+    if (!poll.ended) {
+      const pending = document.createElement("p");
+      pending.className = "admin-note";
+      pending.textContent = "Die Antworten und die Auswertung sind nach Ende der Frage verfügbar.";
+      container.append(pending);
+      return;
+    }
+    const responses = poll.responses || [];
+    const details = document.createElement("details");
+    const heading = document.createElement("summary");
+    heading.textContent = responses.length + " Freitextantworten";
+    details.append(heading);
+    const list = document.createElement("ul");
+    for (const [response, count] of groupPollResponses(responses)) {
+      const item = document.createElement("li");
+      item.textContent = count > 1 ? count + "× " + response : response;
+      item.className = "admin-poll-response";
+      list.append(item);
+    }
+    details.append(list);
+    container.append(details);
+    if (poll.summary?.length) {
+      const summary = document.createElement("p");
+      summary.textContent = "Häufigste Begriffe nach Ende: " + poll.summary.map(([term, count]) => term + " (" + count + ")").join(", ");
+      container.append(summary);
+    }
+  }
   let linkCheckPromise = null;
   let visitorStatsTimer;
   const loginForm = el("login-form");
@@ -17,6 +225,9 @@
   };
   function showLogin(message = "", forgetSession = true) {
     clearTimeout(visitorStatsTimer);
+    pollPage = 1;
+    pollRequest++;
+    el("polls-newer").hidden = el("polls-older").hidden = true;
     admin.isAdmin = false;
     if (forgetSession) api.clearSession();
     panel.classList.remove("open");
@@ -86,8 +297,12 @@
     if (!signedIn) {
       el("app-install-button").hidden = false;
       void window.__findoraEnableApp?.();
-      void loadAdminPolls();
-      void refreshSiteAdmin();
+      if (pollView) {
+        void loadAdminPolls();
+        if (location.hash === "#abstimmungsergebnisse") el("abstimmungsergebnisse").scrollIntoView();
+      } else {
+        void refreshSiteAdmin();
+      }
     }
   }
 
@@ -320,9 +535,28 @@
     el("amazon-report-file").onchange = event => {
       if (event.target.files[0]) void importAmazonReport(event.target.files[0]);
     };
-    el("admin-polls").hidden = false;
-    el("refresh-admin-poll-results").onclick = loadAdminPolls;
+    if (pollView) {
+      panel.dataset.adminView = "polls";
+      head.querySelector("h2").textContent = "Abstimmungen und Fragen";
+      head.querySelector("p").hidden = true;
+      const link = el("admin-poll-workspace-link");
+      link.href = "admin.html";
+      link.textContent = "Zur Verwaltung";
+    }
+    el("admin-polls").hidden = !pollView;
+    el("refresh-admin-poll-results").onclick = () => loadAdminPolls();
+    el("polls-newer").onclick = () => loadAdminPolls(pollPage - 1);
+    el("polls-older").onclick = () => loadAdminPolls(pollPage + 1);
     el("admin-poll-form").onsubmit = createAdminPoll;
+    el("poll-free-text").onchange = syncPollMode;
+    el("poll-template-import").onchange = importPollTemplate;
+    el("poll-template-download").onclick = () => {
+      if (el("admin-poll-options").querySelector("[data-uploading]")) {
+        notice("Bitte warte, bis das Antwortbild verarbeitet ist.", "error");
+        return;
+      }
+      downloadPollTemplate(pollFormData());
+    };
     el("admin-poll-add-option").onclick = () => addAdminPollOption();
     resetAdminPollForm();
     const normalLink = document.createElement("div");
