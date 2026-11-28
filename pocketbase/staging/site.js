@@ -74,7 +74,7 @@
     async function saveProduct(collection, product, changes, image, documentFile) {
         const body = new FormData();
         body.set("payload", JSON.stringify({ ...product, ...changes, replace_image: Boolean(image), replace_document: Boolean(documentFile) }));
-        if (image) body.set("image", await optimizeImage(image));
+        if (image) body.set("image", collection === "products" ? image : await optimizeImage(image));
         if (documentFile) body.set("document", documentFile);
         return adminRequest(productPath(collection, product.id), { method: "POST", body });
     }
