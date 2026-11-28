@@ -119,8 +119,10 @@ function save(e) {
     const image = uploadedFile(e, "image", input.replace_image);
     const production = $os.getenv("FINDORA_SITE_MODE") === "production";
     const document = collection === "own_products" ? uploadedFile(e, "document", input.replace_document) : null;
-    if (isNew && (!image || (collection === "own_products" && !production && !document))) {
-        throw new BadRequestError("Bitte wähle ein Produktbild und bei eigenen Produkten eine PDF-Datei aus.");
+    if (isNew && collection === "own_products" && (!image || (!production && !document))) {
+        throw new BadRequestError(production
+            ? "Bitte wähle ein Produktbild aus."
+            : "Bitte wähle ein Produktbild und eine PDF-Datei aus.");
     }
     if (image && input.remove_image === true) throw new BadRequestError("Ungültige Bildänderung.");
     let saved;
@@ -255,16 +257,37 @@ function links(e) {
 function bulkLinks(e) {
     const updates = e.requestInfo().body.p_updates;
     if (!Array.isArray(updates) || !updates.length || updates.length > 2000) throw new BadRequestError("Ungültige Linkliste.");
+    let changed = 0;
     e.app.runInTransaction(app => {
+        const seen = new Set();
         for (const update of updates) {
-            if (!/^\d+$/.test(String(update.id))) throw new BadRequestError("Ungültige Produkt-ID.");
-            const record = app.findRecordsByFilter("products", "legacy_id = {:id}", "", 1, 0, { id: String(update.id) })[0];
+            const id = String(update?.id ?? "");
+            if (!/^\d+$/.test(id) || seen.has(id)) throw new BadRequestError("Ungültige oder doppelte Produkt-ID.");
+            seen.add(id);
+            if (update.link === undefined && update.normal_link === undefined) throw new BadRequestError("Fehlende Linkänderung.");
+            const record = app.findRecordsByFilter("products", "legacy_id = {:id}", "", 1, 0, { id })[0];
             if (!record) throw new NotFoundError("Produkt wurde nicht gefunden.");
-            record.set("link", webUrl(update.link));
-            app.save(record);
+            let updated = false;
+            for (const field of ["link", "normal_link"]) {
+                if (update[field] === undefined) continue;
+                const next = webUrl(update[field]);
+                const details = field === "normal_link";
+                const item = details ? related(app, "product_source_details", record.id) : record;
+                const current = item?.getString(field) || "";
+                if (next === current) continue;
+                if (update["old_" + field] !== undefined && update["old_" + field] !== current) {
+                    throw new ApiError(409, "Der Link zu „" + record.getString("name") + "“ wurde inzwischen geändert. Bitte eine aktuelle Vorlage verwenden.");
+                }
+                const target = item || new Record(app.findCollectionByNameOrId("product_source_details"));
+                if (!item) target.set("product", record.id);
+                target.set(field, next);
+                app.save(target);
+                updated = true;
+            }
+            if (updated) changed++;
         }
     });
-    return e.json(200, { data: updates.length });
+    return e.json(200, { data: changed });
 }
 
 module.exports = { catalog, details, save, remove, duplicate, taxonomy, links, bulkLinks };

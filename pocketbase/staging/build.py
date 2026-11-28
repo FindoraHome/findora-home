@@ -230,14 +230,34 @@ def digital_checkout(html):
 def links(html):
     html = re.sub(r'<script src="https://cdn\.jsdelivr\.net/[^"\n]+"></script>\s*', "", html)
     html = html.replace('href="index.html#admin-panel"', 'href="admin.html"')
+    for name in ("csvCell", "downloadLinkTemplate", "importLinkTemplate"):
+        html = replace(html, rf"^    (?:async )?function {name}\([^\n]+$", "", name, re.M)
+    html = replace(html, r'<div><h2>Alle Affiliate-Links schnell wechseln</h2>[^\n]+</div>',
+                   '<div><h2>Produktlinks mit Excel ändern</h2>'
+                   '<p class="hint">Trage die Ersatzlinks in „Neuer Affiliate-Link“ oder „Neuer Original-Link“ ein. '
+                   'Leere Felder werden übersprungen. Lade die Datei hoch und prüfe die Änderungen vor dem Speichern.</p></div>',
+                   "Excel link instructions")
+    html = html.replace("CSV-Vorlage herunterladen", "Excel-Vorlage herunterladen").replace('accept=".csv,.txt"', 'accept=".xlsx,.csv,.txt"')
+    html = replace(html, r'(<input id="link-template-file" type="file" accept="\.xlsx,\.csv,\.txt" hidden></div>)',
+                   '<input id="link-template-file" type="file" accept=".xlsx,.csv,.txt" hidden></div>'
+                   '<div id="link-import-preview" hidden style="grid-column:1/-1">'
+                   '<details><summary id="link-import-count"></summary>'
+                   '<ul id="link-import-changes" style="overflow-wrap:anywhere;max-height:16rem;overflow:auto"></ul></details>'
+                   '<button id="apply-link-import" class="btn green" type="button">Änderungen speichern</button> '
+                   '<button id="cancel-link-import" class="btn" type="button">Abbrechen</button></div>',
+                   "Excel link preview")
     adapter = (STAGING / "links.js").read_text(encoding="utf-8")
     html = replace(html, r'^    const client = window\.supabase\.createClient\([^\n]+$',
                    "    const client = window.FindoraStagingSite.admin;\n" + adapter, "link management client", re.M)
     for name in ("uploadImage", "saveProductRow", "deleteProduct", "replaceAll", "boot"):
         html = replace(html, rf"^    async function {name}\([^\n]+client\.[^\n]+$", "", name, re.M)
-    html = html.replace('client.rpc("bulk_update_affiliate_links", { p_updates: updates })', 'bulkLinks(updates)')
+    html = html.replace('byId("logout").onclick', 'byId("apply-link-import").onclick = saveLinkBatch; '
+                        'byId("cancel-link-import").onclick = clearLinkPreview; byId("logout").onclick')
     html = html.replace('async () => { await client.auth.signOut(); location.replace("index.html"); }', 'logout')
-    return replace(html, r"</head>", '<script src="site.js"></script>\n</head>', "link management head")
+    return replace(html, r"</head>", '<script src="site.js"></script>\n'
+                   '<script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.mini.min.js" '
+                   'integrity="sha384-NG/W3xvO3ynQEcDQYIOcZTXRtwUs83cLv1FIl9PuqWPDuNhsMRF6wutlNLFwlb71" crossorigin="anonymous"></script>\n'
+                   '</head>', "link management head")
 
 
 def template_section(html, pattern, label):
@@ -398,7 +418,7 @@ def build_admin_app(source, destination, origin=None):
         manifest = manifest.replace('"name": "Findora Home Verwaltung"', '"name": "Findora Home Vorschauverwaltung"')
     (destination / "manifest.webmanifest").write_text(manifest, encoding="utf-8")
     service_worker = (ROOT / "service-worker.js").read_text(encoding="utf-8")
-    cache = "findora-production-app-v8" if origin else "findora-staging-app-v9"
+    cache = "findora-production-app-v9" if origin else "findora-staging-app-v10"
     service_worker = replace(service_worker, r'^const CACHE = [^\n]+$', f'const CACHE = "{cache}";', "app cache", re.M)
     service_worker = service_worker.replace('"./links.html"', '"./links.html", "./admin.html", "./admin.css", "./admin.js", '
                                             '"./site.js", "./staging-install.js", "./staging-catalog.js", "./staging-preview.css"')
